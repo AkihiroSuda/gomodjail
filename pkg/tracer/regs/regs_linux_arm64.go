@@ -8,6 +8,11 @@ func (regs *Regs) Args() []uint64 {
 	return regs.Regs[0:5]
 }
 
+func (regs *Regs) SetSyscall(v uint64) {
+	regs.Regs[8] = v
+	regs.Modified = true
+}
+
 func (regs *Regs) SetRet(v uint64) {
 	regs.Regs[0] = v
 	regs.Modified = true
