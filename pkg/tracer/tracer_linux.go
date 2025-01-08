@@ -179,6 +179,7 @@ func (tracer *Tracer) handleSyscall(pid int, regs *regs.Regs) error {
 					slog.Warn("***Blocked***", "pid", pid, "exe", filename, "syscall", syscallName, "entry", e.String(), "module", module)
 					ret := -1 * int(unix.EPERM)
 					regs.SetRet(uint64(ret))
+					regs.SetSyscall(unix.SYS_GETPID) // Only needed on amd64?
 					return nil
 				}
 			}
