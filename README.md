@@ -1,3 +1,5 @@
+[[📂**Profiles**]](./examples/profiles)
+
 # gomodjail: jail for Go modules
 
 gomodjail imposes syscall restrictions on a specific set of Go modules,
@@ -65,6 +67,12 @@ Run the program again with `gomodjail run --go-mod=go.mod`, and confirm that the
 gomodjail run --go-mod=go.mod -- ./victim
 level=WARN msg=***Blocked*** syscall=pidfd_open module=github.com/AkihiroSuda/gomodjail/examples/poisoned
 ```
+
+### More examples
+
+[`examples/profiles`](./examples/profiles) has several example profiles:
+- `docker.mod`: for `docker` (not `dockerd`)
+- ...
 
 ## Caveats
 - Not applicable to a Go binary built by non-trustworthy thirdparty, as the symbol information might be faked.
