@@ -28,3 +28,14 @@ jobs:
           cd examples/victim
           go build
           gomodjail run --go-mod=go.mod -- ./victim
+      - name: "Smoke test: docker (not dockerd)"
+        timeout-minutes: 5
+        run: |
+          set -eux
+          DOCKER="gomodjail run --go-mod=./examples/profiles/docker.mod -- docker"
+          $DOCKER buildx create --name foo --use
+          cat <<EOF | $DOCKER buildx build -t foo --load -
+          FROM alpine
+          RUN apk add bash
+          EOF
+          $DOCKER run --rm foo /bin/bash -c "echo hi"
