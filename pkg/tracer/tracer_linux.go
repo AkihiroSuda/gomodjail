@@ -14,7 +14,7 @@ import (
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
 	"github.com/AkihiroSuda/gomodjail/pkg/tracer/regs"
 	"github.com/AkihiroSuda/gomodjail/pkg/unwinder"
-	seccomp "github.com/seccomp/libseccomp-golang"
+	"github.com/elastic/go-seccomp-bpf/arch"
 	"golang.org/x/sys/unix"
 )
 
@@ -24,12 +24,17 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (*Tracer, error) {
 		return nil, err
 	}
 	cmd.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
+	archInfo, err := arch.GetInfo("")
+	if err != nil {
+		return nil, err
+	}
 	tracer := &Tracer{
 		cmd:       cmd,
 		profile:   profile,
 		selfExe:   selfExe,
 		pids:      make(map[int]string),
 		unwinders: make(map[string]*unwinder.Unwinder),
+		archInfo:  archInfo,
 	}
 	for k, v := range profile.Modules {
 		slog.Debug("Loading profile", "module", k, "policy", v)
@@ -43,6 +48,7 @@ type Tracer struct {
 	selfExe   string
 	pids      map[int]string                // key: pid, value: file name
 	unwinders map[string]*unwinder.Unwinder // key: file name
+	archInfo  *arch.Info
 }
 
 const commonPtraceOptions = unix.PTRACE_O_TRACEFORK |
@@ -130,8 +136,9 @@ func (tracer *Tracer) Trace() error {
 
 func (tracer *Tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	syscallNr := regs.Syscall()
-	syscallName, err := seccomp.ScmpSyscall(syscallNr).GetName()
-	if err != nil {
+	// FIXME: check the seccomp arch
+	syscallName, ok := tracer.archInfo.SyscallNumbers[int(syscallNr)]
+	if !ok {
 		return fmt.Errorf("unknown syscall %d", syscallNr)
 	}
 	switch syscallName {
@@ -143,6 +150,7 @@ func (tracer *Tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	}
 	filename, ok := tracer.pids[pid]
 	if !ok {
+		var err error
 		filename, err = os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
 		if err != nil {
 			return err
@@ -154,6 +162,7 @@ func (tracer *Tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	}
 	uw, ok := tracer.unwinders[filename]
 	if !ok {
+		var err error
 		uw, err = unwinder.New(filename)
 		if err != nil { // No gosymtab
 			tracer.unwinders[filename] = nil
