@@ -45,7 +45,8 @@ clean:
 	rm -rf _output _artifacts
 
 define make_artifact
-	$(DOCKER_BUILD) --platform $(1)/$(2) --output type=tar,dest=_artifacts/gomodjail-$(VERSION).$(1)-$(2).tar.gz .
+	$(DOCKER_BUILD) --platform $(1)/$(2) --output type=tar,dest=_artifacts/gomodjail-$(VERSION).$(1)-$(2).tar .
+	gzip -9n _artifacts/gomodjail-$(VERSION).$(1)-$(2).tar
 endef
 
 .PHONY: artifacts
