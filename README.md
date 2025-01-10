@@ -28,12 +28,9 @@ Runtime dependencies:
 
 Build dependencies:
 - [Go](https://go.dev/dl/)
-- gcc
-- libseccomp-dev (apt), libseccomp-devel (dnf)
 
 ## Install
 ```bash
-sudo apt install -y build-essential libseccomp-dev
 make
 sudo make install
 ```

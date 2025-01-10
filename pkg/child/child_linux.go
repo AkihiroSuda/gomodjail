@@ -9,8 +9,26 @@ import (
 
 	"github.com/AkihiroSuda/gomodjail/pkg/env"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile/seccompprofile"
-	seccomp "github.com/seccomp/libseccomp-golang"
+	seccomp "github.com/elastic/go-seccomp-bpf"
+	"github.com/elastic/go-seccomp-bpf/arch"
 )
+
+func withoutUnknownSyscalls(ss []string) []string {
+	archInfo, err := arch.GetInfo("")
+	if err != nil {
+		panic(err)
+	}
+	var res []string
+	for _, s := range ss {
+		if _, ok := archInfo.SyscallNames[s]; ok {
+			res = append(res, s)
+		} else {
+			slog.Debug("Ignoring syscall not supported on this arch",
+				"syscallName", s, "arch", archInfo.ID.String())
+		}
+	}
+	return res
+}
 
 func Main(args []string) error {
 	if os.Geteuid() == 0 {
@@ -21,23 +39,26 @@ func Main(args []string) error {
 	if err != nil {
 		return err
 	}
-	filter, err := seccomp.NewFilter(seccomp.ActTrace)
-	if err != nil {
-		return fmt.Errorf("failed to create a seccomp filter: %w", err)
+	os.Unsetenv(env.PrivateChild)
+
+	seccompPolicy := seccomp.Policy{
+		DefaultAction: seccomp.ActionTrace,
+		Syscalls: []seccomp.SyscallGroup{
+			{
+				Names:  withoutUnknownSyscalls(seccompprofile.AlwaysAllowed),
+				Action: seccomp.ActionAllow,
+			},
+		},
 	}
-	for _, syscallName := range seccompprofile.AlwaysAllowed {
-		sc, err := seccomp.GetSyscallFromName(syscallName)
-		if err != nil {
-			return fmt.Errorf("failed to get syscall %q: %w", syscallName, err)
-		}
-		if err := filter.AddRule(sc, seccomp.ActAllow); err != nil {
-			return fmt.Errorf("failed to add a rule for %q: %w", syscallName, err)
-		}
+	seccompFilter := seccomp.Filter{
+		NoNewPrivs: true,
+		Flag:       seccomp.FilterFlagTSync,
+		Policy:     seccompPolicy,
 	}
-	if err := filter.Load(); err != nil {
+	if err := seccomp.LoadFilter(seccompFilter); err != nil {
 		return fmt.Errorf("failed to load the seccomp filter: %w", err)
 	}
-	os.Unsetenv(env.PrivateChild)
+
 	if err := syscall.Exec(arg0, args, os.Environ()); err != nil {
 		return fmt.Errorf("failed to execute %q %v: %w", arg0, args, err)
 	}

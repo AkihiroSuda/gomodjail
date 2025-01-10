@@ -14,7 +14,7 @@ GO_BUILD ?= $(GO) build -trimpath -ldflags="$(GO_LDFLAGS)"
 STATIC ?=
 ifeq ($(STATIC),1)
 	GO_LDFLAGS += -extldflags -static
-	export CGO_ENABLED=1
+	export CGO_ENABLED=0
 endif
 
 DOCKER ?= docker
