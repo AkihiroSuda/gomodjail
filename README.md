@@ -110,7 +110,7 @@ Global Flags:
 ```
 
 ### How it works
-- [`SECCOMP_RET_TRAP`](https://man7.org/linux/man-pages/man2/seccomp.2.html) is used for conditionally
+- [`SECCOMP_RET_TRACE`](https://man7.org/linux/man-pages/man2/seccomp.2.html) is used for conditionally
   allowing trusted Go modules to execute the syscall.
   `SECCOMP_RET_USER_NOTIF` is not used because it cannot access all the CPU registers,
   due to the [lack of `struct pt_regs` in `struct seccomp_data`](https://github.com/torvalds/linux/blob/v6.12/kernel/seccomp.c#L242-L266).
