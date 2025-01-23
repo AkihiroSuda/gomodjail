@@ -7,13 +7,26 @@ on:
   pull_request:
 jobs:
   main:
-    runs-on: ubuntu-24.04
+    env:
+      GOTOOLCHAIN: local
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            go: 1.24.x
+          - runner: macos-15
+            # libgomodjail_hook_darwin is sensitive to Go version
+            go: 1.23.x
+          - runner: macos-15
+            go: 1.24.x
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.23.x
+          go-version: ${{ matrix.go }}
       - name: Install
         run: |
           set -eux
@@ -27,6 +40,7 @@ jobs:
           go build
           gomodjail run --go-mod=go.mod -- ./victim
       - name: "Smoke test: docker (not dockerd)"
+        if: runner.os == 'Linux'
         timeout-minutes: 5
         run: |
           set -eux

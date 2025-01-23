@@ -21,9 +21,13 @@ require (
 gomodjail run --go-mod=FILE -- PROG [ARGS]...
 ```
 
+> [!IMPORTANT]
+>
+> See [Caveats](#caveats).
+
 ## Requirements
 Runtime dependencies:
-- Linux 4.8 or later
+- Linux (4.8 or later) or macOS
 - x86\_64 (aka "amd64") or aarch64 ("arm64")
 
 Build dependencies:
@@ -84,9 +88,15 @@ level=WARN msg=***Blocked*** syscall=pidfd_open module=github.com/AkihiroSuda/go
 - No isolation of file descriptors across modules.
   A confined module can still read/write an existing file descriptor, although it cannot open a new file descriptor.
 - The target binary file must not be replaced during execution.
-- May not work with a future version of Go.
 - The `gomodjail:confined` policy is not well defined and still subject to change.
 - This is not a panacea; there can be other loopholes too.
+
+macOS:
+- The protection can be arbitraliry disabled by unsetting an environment variable `DYLD_INSERT_LIBRARIES`.
+- Only works with the following versions of Go:
+  - 1.22
+  - 1.23
+  - 1.24 (RC)
 
 ## Advanced topics
 ### Advanced usage
@@ -110,15 +120,20 @@ Global Flags:
 ```
 
 ### How it works
+Linux:
 - [`SECCOMP_RET_TRACE`](https://man7.org/linux/man-pages/man2/seccomp.2.html) is used for conditionally
   allowing trusted Go modules to execute the syscall.
   `SECCOMP_RET_USER_NOTIF` is not used because it cannot access all the CPU registers,
   due to the [lack of `struct pt_regs` in `struct seccomp_data`](https://github.com/torvalds/linux/blob/v6.12/kernel/seccomp.c#L242-L266).
 - [Stack unwinding](https://www.grant.pizza/blog/go-stack-traces-bpf/) is used for analyzing the call stack to determine the Go module.
 
+macOS:
+- `DYLD_INSERT_LIBRARIES` is used to hook `libSystem` (`libc`) calls.
+- In addition to the frame pointer (AArch64 register X29), `struct g` (pointed by X28) and `g->m.libcallsp` are parsed to analyze the CGO call stack.
+  This analysis is not robust and only works with specific versions of Go. (See [Caveats](#caveats)).
+
 ### Future works
 - Automatically detect non-applicable modules (explained in [Caveats](#caveats)).
-- Support macOS, probably using `DYLD_INSERT_LIBRARIES`
 - Support embedding gomodjail in a target program
 - Apply landlock in addition to seccomp. Depends on `SECCOMP_IOCTL_NOTIF_ADDFD`.
 - Modify the source code of the Go runtime, so as to remove necessity of using `seccomp`.

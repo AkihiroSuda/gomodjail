@@ -44,6 +44,10 @@ func newRootCommand() *cobra.Command {
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if debug, _ := cmd.Flags().GetBool("debug"); debug {
 			logLevel.Set(slog.LevelDebug)
+			if _, ok := os.LookupEnv("DEBUG"); !ok {
+				// Parsed by libgomodjail_hook_darwin
+				os.Setenv("DEBUG", "1")
+			}
 		}
 		return nil
 	}
