@@ -18,7 +18,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func New(cmd *exec.Cmd, profile *profile.Profile) (*Tracer, error) {
+func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	selfExe, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (*Tracer, error) {
 	if err != nil {
 		return nil, err
 	}
-	tracer := &Tracer{
+	tracer := &tracer{
 		cmd:       cmd,
 		profile:   profile,
 		selfExe:   selfExe,
@@ -42,7 +42,7 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (*Tracer, error) {
 	return tracer, nil
 }
 
-type Tracer struct {
+type tracer struct {
 	cmd       *exec.Cmd
 	profile   *profile.Profile
 	selfExe   string
@@ -61,7 +61,7 @@ const commonPtraceOptions = unix.PTRACE_O_TRACEFORK |
 
 // Trace traces the process.
 // Trace may call [os.Exit].
-func (tracer *Tracer) Trace() error {
+func (tracer *tracer) Trace() error {
 	runtime.LockOSThread() // required by SysProcAttr.Ptrace
 
 	// TODO: propagate signals from parent (see RootlessKit's implementation)
@@ -134,7 +134,7 @@ func (tracer *Tracer) Trace() error {
 	}
 }
 
-func (tracer *Tracer) handleSyscall(pid int, regs *regs.Regs) error {
+func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	syscallNr := regs.Syscall()
 	// FIXME: check the seccomp arch
 	syscallName, ok := tracer.archInfo.SyscallNumbers[int(syscallNr)]
@@ -177,6 +177,7 @@ func (tracer *Tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	if err != nil {
 		return err
 	}
+	// TODO: consolidate OS-specific codes
 	slog.Debug("handler", "pid", pid, "exe", filename, "syscall", syscallName)
 	for i, e := range entries {
 		slog.Debug("stack", "entryNo", i, "entry", e.String())

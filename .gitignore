@@ -3,3 +3,5 @@
 /gomodjail
 /victim
 /examples/victim/victim
+*.o
+*.dylib
