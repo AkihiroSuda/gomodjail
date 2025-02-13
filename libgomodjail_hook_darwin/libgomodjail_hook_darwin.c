@@ -3,7 +3,10 @@
 #include <errno.h>
 #include <execinfo.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <mach-o/dyld.h>
 #include <mach-o/loader.h>
+#include <mach-o/nlist.h>
 #include <spawn.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -43,6 +46,7 @@ static bool debug = false;
 
 static bool enabled = false;
 
+/* TODO: move to go_runtime_info */
 static char exe_path[MAXPATHLEN];
 static uint32_t exe_path_len = MAXPATHLEN;
 
@@ -84,7 +88,15 @@ static struct go_runtime_offset go_runtime_offsets[] = {
     },
 };
 
+/* TODO: move to go_runtime_info */
 static struct go_runtime_offset *go_runtime_offset_current = NULL;
+
+struct go_runtime_info {
+  char *version; /* *NOT* freeable */
+  uint64_t *tls_g_addr;
+};
+
+static struct go_runtime_info go_runtime_info;
 
 // The result is *NOT* freeable.
 static char *get_go_version_from_go_buildinfo_buf(uint8_t *buf) {
@@ -116,9 +128,9 @@ done:
   return res;
 }
 
-// The result is *NOT* freeable.
-static char *get_go_version_from_file_buf(void *buf) {
-  char *res = NULL;
+static struct go_runtime_info get_go_runtime_info_from_file_buf(void *buf) {
+  struct go_runtime_info res;
+  memset(&res, 0, sizeof(res));
   struct mach_header_64 *mh = (struct mach_header_64 *)buf;
   if (mh->magic != MH_MAGIC_64) {
     /* TODO: support FAT_MAGIC? */
@@ -134,8 +146,23 @@ static char *get_go_version_from_file_buf(void *buf) {
           (struct section_64 *)((uint8_t *)seg + sizeof(*seg));
       for (uint32_t s = 0; s < seg->nsects; s++) {
         if (strncmp(sect[s].sectname, "__go_buildinfo", 14) == 0) {
-          res = get_go_version_from_go_buildinfo_buf(buf + sect[s].offset);
-          goto done;
+          res.version =
+              get_go_version_from_go_buildinfo_buf(buf + sect[s].offset);
+        }
+      }
+    } else if (lc->cmd == LC_SYMTAB) {
+      struct symtab_command *stcmd = (struct symtab_command *)lc;
+      char *strtab = (char *)buf + stcmd->stroff;
+      struct nlist_64 *symtab =
+          (struct nlist_64 *)((uint8_t *)buf + stcmd->symoff);
+      for (uint32_t j = 0; j < stcmd->nsyms; j++) {
+        char *name = strtab + symtab[j].n_un.n_strx;
+        if (STR_EQ(name, "_runtime.tls_g")) {
+          int image_index = 1; /* FIXME: parse */
+          uint64_t runtime_tls_g_sym_value = (uint64_t)symtab[j].n_value;
+          res.tls_g_addr =
+              (uint64_t *)(_dyld_get_image_vmaddr_slide(image_index) +
+                           runtime_tls_g_sym_value);
         }
       }
     }
@@ -145,9 +172,9 @@ done:
   return res;
 }
 
-// The result is *NOT* freeable.
-static char *get_go_version_from_file(const char *path) {
-  char *res = NULL;
+static struct go_runtime_info get_go_runtime_info_from_file(const char *path) {
+  struct go_runtime_info res;
+  memset(&res, 0, sizeof(res));
   void *mm = NULL;
   size_t mm_len = -1;
   int fd = open(path, O_RDONLY);
@@ -168,7 +195,7 @@ static char *get_go_version_from_file(const char *path) {
   }
   close(fd);
   fd = -1;
-  res = get_go_version_from_file_buf(mm);
+  res = get_go_runtime_info_from_file_buf(mm);
 done:
   if (fd >= 0)
     close(fd);
@@ -185,7 +212,8 @@ static void init() {
     ERRORF("_NSGetExecutablePath() failed");
     return;
   }
-  char *go_version = get_go_version_from_file(exe_path); /* Not freeable */
+  go_runtime_info = get_go_runtime_info_from_file(exe_path);
+  char *go_version = go_runtime_info.version; /* Not freeable */
   if (!go_version) {
     WARNF("%s: Not a Go binary. Ignoring.", exe_path);
     return;
@@ -212,12 +240,19 @@ static void init() {
 }
 
 #if defined(__aarch64__)
-/* https://tip.golang.org/src/cmd/compile/abi-internal */
-#define FETCH_G(var) __asm__ __volatile__("mov %0, x28\n" : "=r"(var) : :)
+static uint64_t fetch_g() {
+  uintptr_t tls_base;
+  __asm__ __volatile__("mrs %0, tpidrro_el0" : "=r"(tls_base));
+  tls_base &= ~((uintptr_t)7);
+  uint64_t runtime_tls_g = *go_runtime_info.tls_g_addr;
+  return *(uint64_t *)(tls_base + runtime_tls_g);
+}
 #elif defined(__x86_64__)
-#define FETCH_G(var) __asm__ __volatile__("movq %%r14, %0" : "=r"(var)::)
-#else
-#error "Unsupported architecture"
+static uint64_t fetch_g() {
+  uint64_t tls_base;
+  __asm__ __volatile__("movq %%gs:0, %0" : "=r"(tls_base));
+  return tls_base + 8;
+}
 #endif
 
 /* Returns true if execution is allowed */
@@ -276,8 +311,7 @@ static bool handle_syscall(const char *syscall_name) {
         fprintf(json_fp, "{\"file\":\"%s\",\"symbol\":\"%s\"},", dli.dli_fname,
                 dli.dli_sname);
         if (STR_EQ(dli.dli_sname, "runtime.asmcgocall.abi0")) {
-          uint64_t g_addr;
-          FETCH_G(g_addr);
+          uint64_t g_addr = fetch_g();
           uint64_t m_addr_addr = g_addr + go_runtime_offset_current->g_m;
           uint64_t m_addr = *(uint64_t *)m_addr_addr;
           uint64_t libcallpc_addr =

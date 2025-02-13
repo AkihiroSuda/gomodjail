@@ -96,7 +96,7 @@ macOS:
 - Only works with the following versions of Go:
   - 1.22
   - 1.23
-  - 1.24 (RC)
+  - 1.24
 
 ## Advanced topics
 ### Advanced usage
@@ -129,7 +129,7 @@ Linux:
 
 macOS:
 - `DYLD_INSERT_LIBRARIES` is used to hook `libSystem` (`libc`) calls.
-- In addition to the frame pointer (AArch64 register X29), `struct g` (pointed by X28) and `g->m.libcallsp` are parsed to analyze the CGO call stack.
+- In addition to the frame pointer (AArch64 register X29), `struct g` in the TLS and `g->m.libcallsp` are parsed to analyze the CGO call stack.
   This analysis is not robust and only works with specific versions of Go. (See [Caveats](#caveats)).
 
 ### Future works
