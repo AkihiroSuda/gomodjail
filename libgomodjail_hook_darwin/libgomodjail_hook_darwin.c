@@ -312,26 +312,37 @@ static bool handle_syscall(const char *syscall_name) {
                 dli.dli_sname);
         if (STR_EQ(dli.dli_sname, "runtime.asmcgocall.abi0")) {
           uint64_t g_addr = fetch_g();
+          if (!g_addr) {
+            ERRORF("!g_addr");
+            break;
+          }
           uint64_t m_addr_addr = g_addr + go_runtime_offset_current->g_m;
           uint64_t m_addr = *(uint64_t *)m_addr_addr;
+          if (!m_addr) {
+            ERRORF("!m_addr");
+            break;
+          }
           uint64_t libcallpc_addr =
               m_addr + go_runtime_offset_current->m_libcallpc;
           uint64_t libcallsp_addr =
               m_addr + go_runtime_offset_current->m_libcallsp;
           uint64_t pc = *(uint64_t *)libcallpc_addr;
           uint64_t sp = *(uint64_t *)libcallsp_addr;
-          uint64_t bp = sp - 8;
-          while (bp != 0) {
-            uint64_t saved_bp = *(uint64_t *)bp;
-            uint64_t ret_addr = *(uint64_t *)(bp + 8);
-            Dl_info dli2;
-            if (dladdr((void *)pc, &dli2) > 0) {
-              DEBUGF("* %s\t%s", dli2.dli_fname, dli2.dli_sname);
-              fprintf(json_fp, "{\"file\":\"%s\",\"symbol\":\"%s\"},",
-                      dli2.dli_fname, dli2.dli_sname);
+          if (sp) {
+            uint64_t bp = sp - 8;
+            while (bp != 0) {
+              DEBUGF("bp=0x%llx", bp);
+              uint64_t saved_bp = *(uint64_t *)bp;
+              uint64_t ret_addr = *(uint64_t *)(bp + 8);
+              Dl_info dli2;
+              if (dladdr((void *)pc, &dli2) > 0) {
+                DEBUGF("* %s\t%s", dli2.dli_fname, dli2.dli_sname);
+                fprintf(json_fp, "{\"file\":\"%s\",\"symbol\":\"%s\"},",
+                        dli2.dli_fname, dli2.dli_sname);
+              }
+              pc = ret_addr;
+              bp = saved_bp;
             }
-            pc = ret_addr;
-            bp = saved_bp;
           }
         }
       } else {
