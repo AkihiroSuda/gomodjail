@@ -97,6 +97,8 @@ macOS:
   - 1.22
   - 1.23
   - 1.24
+- Not applicable to a Go module that use:
+  - [`syscall.Syscall`, `syscall.RawSyscall`, etc.](https://pkg.go.dev/syscall)
 
 ## Advanced topics
 ### Advanced usage
@@ -109,11 +111,14 @@ Run a Go program with confinement
 Usage:
   gomodjail run COMMAND...
 
+Examples:
+TBD
+
 Flags:
       --go-mod gomodjail:confined   go.mod file with comment lines like gomodjail:confined
-  -h, --help                          help for run
-      --no-policy                     Allow running without any policy (useful only for debugging)
-      --policy stringToString         e.g., example.com/module=confined (default [])
+  -h, --help                        help for run
+      --no-policy                   Allow running without any policy (useful only for debugging)
+      --policy stringToString       e.g., example.com/module=confined (default [])
 
 Global Flags:
       --debug   debug mode [$DEBUG]
@@ -136,4 +141,4 @@ macOS:
 - Automatically detect non-applicable modules (explained in [Caveats](#caveats)).
 - Support embedding gomodjail in a target program
 - Apply landlock in addition to seccomp. Depends on `SECCOMP_IOCTL_NOTIF_ADDFD`.
-- Modify the source code of the Go runtime, so as to remove necessity of using `seccomp`.
+- Modify the source code of the Go runtime, so as to remove necessity of using `seccomp` (Linux) and `DYLD_INSERT_LIBRARIES` (macOS).
