@@ -247,12 +247,15 @@ static uint64_t fetch_g() {
   uint64_t runtime_tls_g = *go_runtime_info.tls_g_addr;
   return *(uint64_t *)(tls_base + runtime_tls_g);
 }
+#define BP_ADJUSTMENT 8
 #elif defined(__x86_64__)
 static uint64_t fetch_g() {
-  uint64_t tls_base;
-  __asm__ __volatile__("movq %%gs:0, %0" : "=r"(tls_base));
-  return tls_base + 8;
+  uintptr_t g;
+  /* https://github.com/golang/go/issues/23617 */
+  __asm__ __volatile__("movq %%gs:0x30, %0" : "=r"(g));
+  return g;
 }
+#define BP_ADJUSTMENT 16
 #endif
 
 /* Returns true if execution is allowed */
@@ -329,9 +332,8 @@ static bool handle_syscall(const char *syscall_name) {
           uint64_t pc = *(uint64_t *)libcallpc_addr;
           uint64_t sp = *(uint64_t *)libcallsp_addr;
           if (sp) {
-            uint64_t bp = sp - 8;
+            uint64_t bp = sp - BP_ADJUSTMENT;
             while (bp != 0) {
-              DEBUGF("bp=0x%llx", bp);
               uint64_t saved_bp = *(uint64_t *)bp;
               uint64_t ret_addr = *(uint64_t *)(bp + 8);
               Dl_info dli2;
