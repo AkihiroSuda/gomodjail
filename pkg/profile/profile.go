@@ -9,10 +9,12 @@ import (
 type Policy = string
 
 const (
-	PolicyConfined = "confined"
+	PolicyUnconfined = "unconfined"
+	PolicyConfined   = "confined"
 )
 
 var KnownPolicies = []Policy{
+	PolicyUnconfined,
 	PolicyConfined,
 }
 

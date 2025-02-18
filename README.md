@@ -142,3 +142,6 @@ macOS:
 - Support embedding gomodjail in a target program
 - Apply landlock in addition to seccomp. Depends on `SECCOMP_IOCTL_NOTIF_ADDFD`.
 - Modify the source code of the Go runtime, so as to remove necessity of using `seccomp` (Linux) and `DYLD_INSERT_LIBRARIES` (macOS).
+
+## Additional documents
+- [`docs/syntax.md`](./docs/syntax.md): syntax
