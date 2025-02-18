@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
 )
@@ -117,17 +116,12 @@ func (tracer *tracer) handlerConn(c net.Conn) error {
 	}
 	slog.Debug("handling request", "req", req)
 
-	// TODO: consolidate OS-specific codes
 	allow := true
 	for _, e := range req.Stack {
-		for module, policy := range tracer.profile.Modules {
-			if policy == profile.PolicyConfined {
-				if strings.HasPrefix(e.Symbol, module) {
-					slog.Warn("***Blocked***", "pid", req.Pid, "exe", req.Exe, "syscall", req.Syscall, "entry", e, "module", module)
-					allow = false
-					break
-				}
-			}
+		if cf := tracer.profile.Confined(e.Symbol); cf != nil {
+			slog.Warn("***Blocked***", "pid", req.Pid, "exe", req.Exe, "syscall", req.Syscall, "entry", e, "module", cf.Module)
+			allow = false
+			break
 		}
 	}
 

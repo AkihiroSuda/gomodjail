@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/procutil"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
@@ -177,22 +176,16 @@ func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	if err != nil {
 		return err
 	}
-	// TODO: consolidate OS-specific codes
 	slog.Debug("handler", "pid", pid, "exe", filename, "syscall", syscallName)
 	for i, e := range entries {
 		slog.Debug("stack", "entryNo", i, "entry", e.String())
 		pkgName := e.Func.Sym.PackageName()
-		// TODO: cache ap[packageName]moduleName table
-		for module, policy := range tracer.profile.Modules {
-			if policy == profile.PolicyConfined {
-				if strings.HasPrefix(pkgName, module) {
-					slog.Warn("***Blocked***", "pid", pid, "exe", filename, "syscall", syscallName, "entry", e.String(), "module", module)
-					ret := -1 * int(unix.EPERM)
-					regs.SetRet(uint64(ret))
-					regs.SetSyscall(unix.SYS_GETPID) // Only needed on amd64?
-					return nil
-				}
-			}
+		if cf := tracer.profile.Confined(pkgName); cf != nil {
+			slog.Warn("***Blocked***", "pid", pid, "exe", filename, "syscall", syscallName, "entry", e.String(), "module", cf.Module)
+			ret := -1 * int(unix.EPERM)
+			regs.SetRet(uint64(ret))
+			regs.SetSyscall(unix.SYS_GETPID) // Only needed on amd64?
+			return nil
 		}
 	}
 	return nil

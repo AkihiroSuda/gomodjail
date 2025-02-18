@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 )
 
 type Policy = string
@@ -36,6 +37,26 @@ func (p *Profile) Validate() error {
 	for k, v := range p.Modules {
 		if !slices.Contains(KnownPolicies, v) {
 			return fmt.Errorf("unknown policy %q was specified for module %q", v, k)
+		}
+	}
+	return nil
+}
+
+type Confinment struct {
+	Module string
+	Policy Policy
+}
+
+func (p *Profile) Confined(sym string) *Confinment {
+	for module, policy := range p.Modules {
+		switch policy {
+		case PolicyConfined:
+			if sym == module || strings.HasPrefix(sym, module+"/") || strings.HasPrefix(sym, module+".") {
+				return &Confinment{
+					Module: module,
+					Policy: policy,
+				}
+			}
 		}
 	}
 	return nil
