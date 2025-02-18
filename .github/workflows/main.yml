@@ -34,6 +34,10 @@ jobs:
           set -eux
           make
           sudo make install
+      - name: Unit tests
+        run: go test -v ./...
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
       - name: Smoke test
         timeout-minutes: 5
         run: |
