@@ -12,22 +12,58 @@ import (
 )
 
 func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
+	currentDefaultPolicy := profile.PolicyUnconfined
+
+	for _, c := range append(mod.Module.Syntax.Comments.Before, mod.Module.Syntax.Comments.Suffix...) {
+		if tok := c.Token; tok != "" {
+			pol, err := policyFromComment(tok)
+			if err != nil {
+				err = fmt.Errorf("failed to parse comment %+v: %w", c, err)
+				return err
+			}
+			currentDefaultPolicy = pol
+		}
+	}
+
+	for _, c := range append(mod.Go.Syntax.Comments.Before, mod.Go.Syntax.Comments.Suffix...) {
+		if tok := c.Token; tok != "" {
+			pol, err := policyFromComment(tok)
+			if err != nil {
+				err = fmt.Errorf("failed to parse comment %+v: %w", c, err)
+				return err
+			}
+			return fmt.Errorf("policy %q is specified in an invalid position", pol)
+		}
+	}
+
 	for _, f := range mod.Require {
 		if syn := f.Syntax; syn != nil {
+			pol := currentDefaultPolicy
 			for _, c := range append(syn.Comments.Before, syn.Comments.Suffix...) {
 				if tok := c.Token; tok != "" {
-					pol, err := policyFromComment(tok)
+					polFromComment, err := policyFromComment(tok)
 					if err != nil {
 						err = fmt.Errorf("failed to parse comment %+v: %w", c, err)
 						return err
 					}
-					if pol != "" {
-						if existPol, ok := prof.Modules[f.Mod.Path]; ok && existPol != pol {
-							slog.Warn("Overwriting an existing policy", "module", f.Mod.Path, "old", existPol, "new", pol)
-						}
-						prof.Modules[f.Mod.Path] = pol
+					if polFromComment != "" {
+						pol = polFromComment
 					}
 				}
+			}
+			if pol == "" {
+				pol = currentDefaultPolicy
+			}
+			if pol == profile.PolicyUnconfined {
+				pol = "" // reduce map size
+			}
+			if existPol, ok := prof.Modules[f.Mod.Path]; ok && existPol != pol {
+				slog.Warn("Overwriting an existing policy", "module", f.Mod.Path, "old", existPol, "new", pol)
+			}
+			if pol == "" {
+				delete(prof.Modules, f.Mod.Path)
+			} else {
+				prof.Modules[f.Mod.Path] = pol
 			}
 		}
 	}
