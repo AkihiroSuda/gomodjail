@@ -71,7 +71,10 @@ func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
 }
 
 func policyFromComment(token string) (string, error) {
+	token = strings.TrimPrefix(token, "//")
+	// TODO: support /* ... */
 	for _, f := range strings.Fields(token) {
+		f = strings.TrimPrefix(f, "//")
 		if strings.HasPrefix(f, "gomodjail:") {
 			pol := profile.Policy(strings.TrimPrefix(f, "gomodjail:"))
 			if !slices.Contains(profile.KnownPolicies, pol) {
