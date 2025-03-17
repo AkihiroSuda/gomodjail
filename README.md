@@ -77,7 +77,6 @@ level=WARN msg=***Blocked*** syscall=pidfd_open module=github.com/AkihiroSuda/go
 
 ## Caveats
 - Not applicable to a Go binary built by non-trustworthy thirdparty, as the symbol information might be faked.
-- Not applicable to a Go binary built with `-ldflags="-s"` (disable symbol table)
 - Not applicable to a Go module that use:
   - [`unsafe`](https://pkg.go.dev/unsafe)
   - [`reflect`](https://pkg.go.dev/reflect)
@@ -92,6 +91,7 @@ level=WARN msg=***Blocked*** syscall=pidfd_open module=github.com/AkihiroSuda/go
 - This is not a panacea; there can be other loopholes too.
 
 macOS:
+- Not applicable to a Go binary built with `-ldflags="-s"` (disable symbol table)
 - The protection can be arbitraliry disabled by unsetting an environment variable `DYLD_INSERT_LIBRARIES`.
 - Only works with the following versions of Go:
   - 1.22

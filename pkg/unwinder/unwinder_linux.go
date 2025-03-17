@@ -7,6 +7,7 @@ import (
 	"debug/elf"
 	"debug/gosym"
 	"fmt"
+	"log/slog"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/procutil"
 )
@@ -20,15 +21,6 @@ func New(binary string) (*Unwinder, error) {
 	if err != nil {
 		return nil, err
 	}
-	gosymtabSec := e.Section(".gosymtab")
-	if gosymtabSec == nil {
-		return nil, fmt.Errorf("no .gosymtab section found in %q", binary)
-	}
-	gosymtabData, err := gosymtabSec.Data()
-	if err != nil {
-		return nil, err
-	}
-
 	gopclntabSec := e.Section(".gopclntab")
 	if gopclntabSec == nil {
 		return nil, fmt.Errorf("no .gopclntab section found in %q", binary)
@@ -40,6 +32,18 @@ func New(binary string) (*Unwinder, error) {
 	textSec := e.Section(".text")
 	if textSec == nil {
 		return nil, fmt.Errorf("no .text section found in %q", binary)
+	}
+
+	var gosymtabData []byte
+	gosymtabSec := e.Section(".gosymtab")
+	if gosymtabSec == nil {
+		slog.Warn("no .gosymtab section found", "binary", binary)
+		// gopclntab seems to suffice in this case
+	} else {
+		gosymtabData, err = gosymtabSec.Data()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	symtab, err := gosym.NewTable(gosymtabData,

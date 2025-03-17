@@ -15,13 +15,20 @@ jobs:
         include:
           - runner: ubuntu-24.04  # Intel
             go: 1.24.x
+            build_mode: ""
+          - runner: ubuntu-24.04  # Intel
+            go: 1.24.x
+            build_mode: "strip"
           - runner: macos-13  # Intel
             go: 1.24.x
+            build_mode: ""
           - runner: macos-15  # ARM
             # libgomodjail_hook_darwin is sensitive to Go version
             go: 1.23.x
+            build_mode: ""
           - runner: macos-15  # ARM
             go: 1.24.x
+            build_mode: ""
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     steps:
@@ -40,10 +47,16 @@ jobs:
         uses: golangci/golangci-lint-action@v6
       - name: Smoke test
         timeout-minutes: 5
+        env:
+          BUILD_MODE: ${{ matrix.build_mode }}
         run: |
           set -eux
           cd examples/victim
-          go build
+          if [ "${BUILD_MODE}" = "strip" ]; then
+            go build -ldflags="-s -w"
+          else
+            go build
+          fi
           gomodjail run --go-mod=go.mod -- ./victim
       - name: "Smoke test: docker (not dockerd)"
         if: runner.os == 'Linux'
