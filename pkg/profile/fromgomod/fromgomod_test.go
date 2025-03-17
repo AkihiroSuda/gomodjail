@@ -28,6 +28,7 @@ require (
 	// gomodjail:confined
 	example.com/mod102 v1.2.3
 	example.com/mod103 v1.2.3
+	example.com/mod104 v1.2.3 //gomodjail:confined
 )
 
 require (
@@ -36,14 +37,17 @@ require (
 	example.com/mod202 v1.2.3 // indirect // gomodjail:confined
 	// gomodjail:confined
 	example.com/mod203 v1.2.4 // indirect
+	example.com/mod204 v1.2.3 // indirect //gomodjail:confined
 )
 `,
 			expected: map[string]string{
 				"example.com/mod100": "confined",
 				"example.com/mod102": "confined",
+				"example.com/mod104": "confined",
 				"example.com/mod201": "confined",
 				"example.com/mod202": "confined",
 				"example.com/mod203": "confined",
+				"example.com/mod204": "confined",
 			},
 		},
 
