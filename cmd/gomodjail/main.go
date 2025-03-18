@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/pack"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/run"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
 	"github.com/AkihiroSuda/gomodjail/pkg/envutil"
@@ -54,6 +55,7 @@ func newRootCommand() *cobra.Command {
 
 	cmd.AddCommand(
 		run.New(),
+		pack.New(),
 	)
 	return cmd
 }
