@@ -102,27 +102,8 @@ macOS:
 
 ## Advanced topics
 ### Advanced usage
-See `gomodjail run --help`
-
-```console
-$ gomodjail run --help
-Run a Go program with confinement
-
-Usage:
-  gomodjail run COMMAND...
-
-Examples:
-TBD
-
-Flags:
-      --go-mod gomodjail:confined   go.mod file with comment lines like gomodjail:confined
-  -h, --help                        help for run
-      --no-policy                   Allow running without any policy (useful only for debugging)
-      --policy stringToString       e.g., example.com/module=confined (default [])
-
-Global Flags:
-      --debug   debug mode [$DEBUG]
-```
+- To create a self-extract archive of gomodjail with a target program, run `gomodjail pack --go-mod=go.mod PROGRAM`.
+  Needs [`makeself`](https://makeself.io) to be installed (`apt install makeself`).
 
 ### How it works
 Linux:
@@ -139,7 +120,6 @@ macOS:
 
 ### Future works
 - Automatically detect non-applicable modules (explained in [Caveats](#caveats)).
-- Support embedding gomodjail in a target program
 - Apply landlock in addition to seccomp. Depends on `SECCOMP_IOCTL_NOTIF_ADDFD`.
 - Modify the source code of the Go runtime, so as to remove necessity of using `seccomp` (Linux) and `DYLD_INSERT_LIBRARIES` (macOS).
 
