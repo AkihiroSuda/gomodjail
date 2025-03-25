@@ -17,7 +17,7 @@ func Main(profile *profile.Profile, args []string) error {
 		return err
 	}
 	if trC, ok := tr.(io.Closer); ok {
-		defer trC.Close()
+		defer trC.Close() //nolint:errcheck
 	}
 	return tr.Trace()
 }

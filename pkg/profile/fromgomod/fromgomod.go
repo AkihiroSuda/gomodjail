@@ -14,7 +14,7 @@ import (
 func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
 	currentDefaultPolicy := profile.PolicyUnconfined
 
-	for _, c := range append(mod.Module.Syntax.Comments.Before, mod.Module.Syntax.Comments.Suffix...) {
+	for _, c := range append(mod.Module.Syntax.Before, mod.Module.Syntax.Suffix...) {
 		if tok := c.Token; tok != "" {
 			pol, err := policyFromComment(tok)
 			if err != nil {
@@ -25,7 +25,7 @@ func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
 		}
 	}
 
-	for _, c := range append(mod.Go.Syntax.Comments.Before, mod.Go.Syntax.Comments.Suffix...) {
+	for _, c := range append(mod.Go.Syntax.Before, mod.Go.Syntax.Suffix...) {
 		if tok := c.Token; tok != "" {
 			pol, err := policyFromComment(tok)
 			if err != nil {
@@ -39,7 +39,7 @@ func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
 	for _, f := range mod.Require {
 		if syn := f.Syntax; syn != nil {
 			pol := currentDefaultPolicy
-			for _, c := range append(syn.Comments.Before, syn.Comments.Suffix...) {
+			for _, c := range append(syn.Before, syn.Suffix...) {
 				if tok := c.Token; tok != "" {
 					polFromComment, err := policyFromComment(tok)
 					if err != nil {

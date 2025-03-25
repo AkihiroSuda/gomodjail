@@ -39,7 +39,7 @@ func Main(args []string) error {
 	if err != nil {
 		return err
 	}
-	os.Unsetenv(env.PrivateChild)
+	_ = os.Unsetenv(env.PrivateChild)
 
 	seccompPolicy := seccomp.Policy{
 		DefaultAction: seccomp.ActionTrace,
