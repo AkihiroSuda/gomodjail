@@ -179,7 +179,7 @@ func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	slog.Debug("handler", "pid", pid, "exe", filename, "syscall", syscallName)
 	for i, e := range entries {
 		slog.Debug("stack", "entryNo", i, "entry", e.String())
-		pkgName := e.Func.Sym.PackageName()
+		pkgName := e.Func.PackageName()
 		if cf := tracer.profile.Confined(pkgName); cf != nil {
 			slog.Warn("***Blocked***", "pid", pid, "exe", filename, "syscall", syscallName, "entry", e.String(), "module", cf.Module)
 			ret := -1 * int(unix.EPERM)

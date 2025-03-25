@@ -47,7 +47,7 @@ func newRootCommand() *cobra.Command {
 			logLevel.Set(slog.LevelDebug)
 			if _, ok := os.LookupEnv("DEBUG"); !ok {
 				// Parsed by libgomodjail_hook_darwin
-				os.Setenv("DEBUG", "1")
+				_ = os.Setenv("DEBUG", "1")
 			}
 		}
 		return nil

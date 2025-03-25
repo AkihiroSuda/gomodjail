@@ -64,7 +64,7 @@ func action(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(td)
+	defer os.RemoveAll(td) //nolint:errcheck
 
 	files := map[string]string{
 		"gomodjail": selfExe,

@@ -10,12 +10,12 @@ func CopyFile(dst, src string, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer srcF.Close()
+	defer srcF.Close() //nolint:errcheck
 	dstF, err := os.OpenFile(dst, os.O_CREATE|os.O_RDWR, perm)
 	if err != nil {
 		return err
 	}
-	defer dstF.Close()
+	defer dstF.Close() // nolint:errcheck
 	if _, err = io.Copy(dstF, srcF); err != nil {
 		return err
 	}
