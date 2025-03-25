@@ -97,7 +97,7 @@ type request struct {
 }
 
 func (tracer *tracer) handlerConn(c net.Conn) error {
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 	jsonLenB := make([]byte, 4)
 	if _, err := c.Read(jsonLenB); err != nil {
 		return err
