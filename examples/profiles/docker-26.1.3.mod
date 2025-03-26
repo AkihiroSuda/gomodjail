@@ -23,7 +23,7 @@ require (
 	github.com/docker/go-connections v0.5.0 // gomodjail:unconfined
 	github.com/docker/go-units v0.5.0
 	github.com/fvbommel/sortorder v1.0.2
-	github.com/gogo/protobuf v1.3.2
+	github.com/gogo/protobuf v1.3.2 // gomodjail:unconfined
 	github.com/google/go-cmp v0.6.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/mattn/go-runewidth v0.0.15
@@ -84,6 +84,7 @@ require (
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/symlink v0.2.0 // indirect
 	github.com/moby/sys/user v0.1.0 // indirect
+	// gomodjail:unconfined
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
@@ -97,6 +98,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
+	// gomodjail:unconfined
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.16.0 // indirect
