@@ -66,15 +66,32 @@ func action(cmd *cobra.Command, args []string) error {
 	}
 	defer os.RemoveAll(td) //nolint:errcheck
 
-	files := map[string]string{
-		"gomodjail": selfExe,
-		"go.mod":    flagGoMod,
-		progBase:    progAbs,
+	type archiveEntry struct {
+		dstBase string
+		src     string
+		perm    os.FileMode
 	}
-	for dstBase, src := range files {
-		dst := filepath.Join(td, dstBase)
-		if err = cp.CopyFile(dst, src, 0o500); err != nil {
-			return fmt.Errorf("failed to copy %q to %q: %w", src, dst, err)
+	files := []archiveEntry{
+		{
+			dstBase: "gomodjail",
+			src:     selfExe,
+			perm:    0o555,
+		},
+		{
+			dstBase: "go.mod",
+			src:     flagGoMod,
+			perm:    0o444,
+		},
+		{
+			dstBase: progBase,
+			src:     progAbs,
+			perm:    0o555,
+		},
+	}
+	for _, f := range files {
+		dst := filepath.Join(td, f.dstBase)
+		if err = cp.CopyFile(dst, f.src, f.perm); err != nil {
+			return fmt.Errorf("failed to copy %q to %q: %w", f.src, dst, err)
 		}
 	}
 
@@ -110,7 +127,7 @@ func action(cmd *cobra.Command, args []string) error {
 
 	src := filepath.Join(td, progBase+".gomodjail")
 	dst := filepath.Join(oldWD, progBase+".gomodjail")
-	if err = cp.CopyFile(dst, src, 0o500); err != nil {
+	if err = cp.CopyFile(dst, src, 0o755); err != nil {
 		return fmt.Errorf("failed to copy %q to %q: %w", src, dst, err)
 	}
 	return patchMakeselfHeader(ctx, dst)
