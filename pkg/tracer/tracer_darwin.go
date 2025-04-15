@@ -13,6 +13,24 @@ import (
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
 )
 
+func LibgomodjailHook() (string, error) {
+	hookDylib := os.Getenv("LIBGOMODJAIL_HOOK")
+	if hookDylib == "" {
+		self, err := os.Executable()
+		if err != nil {
+			return "", err
+		}
+		binDir := filepath.Dir(self)             // /usr/local/bin
+		localDir := filepath.Dir(binDir)         // /usr/local
+		libDir := filepath.Join(localDir, "lib") // /usr/local/lib
+		hookDylib = filepath.Join(libDir, "libgomodjail_hook_darwin.dylib")
+	}
+	if _, err := os.Stat(hookDylib); err != nil {
+		return "", err
+	}
+	return hookDylib, nil
+}
+
 func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	tmpDir, err := os.MkdirTemp("", "gomodjail")
 	if err != nil {
@@ -23,15 +41,8 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	if err != nil {
 		return nil, err
 	}
-	self, err := os.Executable()
+	hookDylib, err := LibgomodjailHook()
 	if err != nil {
-		return nil, err
-	}
-	binDir := filepath.Dir(self)             // /usr/local/bin
-	localDir := filepath.Dir(binDir)         // /usr/local
-	libDir := filepath.Join(localDir, "lib") // /usr/local/lib
-	hookDylib := filepath.Join(libDir, "libgomodjail_hook_darwin.dylib")
-	if _, err := os.Stat(hookDylib); err != nil {
 		return nil, err
 	}
 	cmd.Env = append(os.Environ(),

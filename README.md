@@ -103,7 +103,7 @@ macOS:
 ## Advanced topics
 ### Advanced usage
 - To create a self-extract archive of gomodjail with a target program, run `gomodjail pack --go-mod=go.mod PROGRAM`.
-  Needs [`makeself`](https://makeself.io) to be installed (`apt install makeself`).
+  The self-extract archive is created as `<PROGRAM>.gomodjail`.
 
 ### How it works
 Linux:
