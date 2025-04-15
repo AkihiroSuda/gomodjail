@@ -1,15 +1,16 @@
 package pack
 
 import (
-	"context"
+	"archive/zip"
 	"errors"
-	"fmt"
+	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/cp"
+	"github.com/AkihiroSuda/gomodjail/pkg/tracer"
+	"github.com/AkihiroSuda/gomodjail/pkg/ziputil"
 	"github.com/spf13/cobra"
 )
 
@@ -30,11 +31,11 @@ func New() *cobra.Command {
 	}
 	flags := cmd.Flags()
 	flags.String("go-mod", "", "go.mod file with comment lines like `gomodjail:confined`")
+	flags.StringP("output", "o", "", "output file (default: <FILE>.gomodjail)")
 	return cmd
 }
 
 func action(cmd *cobra.Command, args []string) error {
-	ctx := cmd.Context()
 	flags := cmd.Flags()
 	flagGoMod, err := flags.GetString("go-mod")
 	if err != nil {
@@ -44,100 +45,57 @@ func action(cmd *cobra.Command, args []string) error {
 		return errors.New("needs --go-mod")
 	}
 	prog := args[0]
-	progBase := filepath.Base(prog)
-	progAbs, err := filepath.Abs(prog)
+	flagOutput, err := flags.GetString("output")
 	if err != nil {
 		return err
 	}
+	if flagOutput == "" {
+		flagOutput = filepath.Base(prog) + ".gomodjail"
+	}
+
+	slog.Info("Creating a self-extract archive", "file", flagOutput)
+	out, err := os.OpenFile(flagOutput, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer out.Close() //nolint:errcheck
 
 	selfExe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-
-	makeself, err := exec.LookPath("makeself")
-	if err != nil {
-		return fmt.Errorf("%w (Hint: apt/dnf/brew install makeself)", err)
-	}
-
-	td, err := os.MkdirTemp("", "gomodjail-pack-*")
+	selfExeF, err := os.Open(selfExe)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(td) //nolint:errcheck
+	defer selfExeF.Close() //nolint:errcheck
+	if _, err := io.Copy(out, selfExeF); err != nil {
+		return err
+	}
 
-	type archiveEntry struct {
-		dstBase string
-		src     string
-		perm    os.FileMode
-	}
-	files := []archiveEntry{
-		{
-			dstBase: "gomodjail",
-			src:     selfExe,
-			perm:    0o555,
-		},
-		{
-			dstBase: "go.mod",
-			src:     flagGoMod,
-			perm:    0o444,
-		},
-		{
-			dstBase: progBase,
-			src:     progAbs,
-			perm:    0o555,
-		},
-	}
-	for _, f := range files {
-		dst := filepath.Join(td, f.dstBase)
-		if err = cp.CopyFile(dst, f.src, f.perm); err != nil {
-			return fmt.Errorf("failed to copy %q to %q: %w", f.src, dst, err)
+	zw := zip.NewWriter(out)
+	defer zw.Close() //nolint:errcheck
+	if runtime.GOOS == "darwin" {
+		libgomodjailHook, err := tracer.LibgomodjailHook()
+		if err != nil {
+			return err
+		}
+		if err := ziputil.WriteFileWithPath(zw, libgomodjailHook, "libgomodjail_hook_darwin.dylib"); err != nil {
+			return err
 		}
 	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
+	if err := ziputil.WriteFileWithPath(zw, prog, filepath.Base(prog)); err != nil {
+		return err
+	}
+	if err := ziputil.WriteFileWithPath(zw, flagGoMod, "go.mod"); err != nil {
+		return err
+	}
+	if err := zw.SetComment(ziputil.SelfExtractArchiveComment); err != nil {
+		return err
+	}
+	if err := zw.Close(); err != nil {
 		return err
 	}
 
-	makeselfCmd := exec.CommandContext(ctx, makeself,
-		"--nomd5",
-		"--nocrc",
-		"--nocomp",
-		"--noprogress",
-		"--quiet",
-		"--packaging-date", "Thu Jan  1 09:00:00 AM JST 1970",
-		// TODO: make targetdir deterministic
-		".",
-		progBase+".gomodjail",
-		progBase+" with gomodjail",
-		"./gomodjail",
-		"run",
-		"--go-mod=go.mod",
-		"--",
-		progBase,
-	)
-	makeselfCmd.Dir = td
-	makeselfCmd.Stdout = cmd.OutOrStdout()
-	makeselfCmd.Stderr = cmd.ErrOrStderr()
-	slog.InfoContext(ctx, "Running makeself", "cmd", makeselfCmd.Args)
-	if err = makeselfCmd.Run(); err != nil {
-		return err
-	}
-
-	src := filepath.Join(td, progBase+".gomodjail")
-	dst := filepath.Join(oldWD, progBase+".gomodjail")
-	if err = cp.CopyFile(dst, src, 0o755); err != nil {
-		return fmt.Errorf("failed to copy %q to %q: %w", src, dst, err)
-	}
-	return patchMakeselfHeader(ctx, dst)
-}
-
-func patchMakeselfHeader(ctx context.Context, f string) error {
-	cmd := exec.CommandContext(ctx, "sed", "-i", `s/^quiet="n"/quiet="y"/`, f)
-	slog.InfoContext(ctx, "Patching makeself header", "cmd", cmd.Args)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("%w (%q)", err, string(out))
-	}
-	return nil
+	return out.Close()
 }

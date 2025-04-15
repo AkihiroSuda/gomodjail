@@ -57,7 +57,11 @@ jobs:
           else
             go build
           fi
+          # Unpacked mode
           gomodjail run --go-mod=go.mod -- ./victim
+          # Packed mode
+          gomodjail pack --go-mod=go.mod ./victim
+          ./victim.gomodjail
       - name: "Smoke test: docker (not dockerd)"
         if: runner.os == 'Linux'
         timeout-minutes: 5

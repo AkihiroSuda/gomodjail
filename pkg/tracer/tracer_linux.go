@@ -3,6 +3,7 @@
 package tracer
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,6 +17,10 @@ import (
 	"github.com/elastic/go-seccomp-bpf/arch"
 	"golang.org/x/sys/unix"
 )
+
+func LibgomodjailHook() (string, error) {
+	return "", errors.New("libgomodjail_hook is unused on linux")
+}
 
 func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	selfExe, err := os.Executable()
