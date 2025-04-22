@@ -93,6 +93,7 @@ require (
 			assert.NilError(t, err)
 			prof := profile.New()
 			assert.NilError(t, FromGoMod(mod, prof))
+			assert.DeepEqual(t, "example.com/foo", prof.Module)
 			assert.DeepEqual(t, tc.expected, prof.Modules)
 		})
 	}

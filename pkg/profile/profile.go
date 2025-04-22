@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -26,10 +27,14 @@ func New() *Profile {
 }
 
 type Profile struct {
-	Modules map[string]Policy
+	Module  string            // the "module" line of go.mod
+	Modules map[string]Policy // the "require" lines of go.mod TODO: rename to "Requires"? "Dependencies"?
 }
 
 func (p *Profile) Validate() error {
+	if p.Module == "" {
+		return errors.New("no module was specified")
+	}
 	if len(p.Modules) == 0 {
 		slog.Warn("No policy was specified")
 	}
@@ -47,7 +52,11 @@ type Confinment struct {
 	Policy Policy
 }
 
-func (p *Profile) Confined(sym string) *Confinment {
+func (p *Profile) Confined(mainMod, sym string) *Confinment {
+	if mainMod != p.Module {
+		slog.Warn("module mismatch", "a", mainMod, "b", p.Module)
+		return nil
+	}
 	for module, policy := range p.Modules {
 		switch policy {
 		case PolicyConfined:

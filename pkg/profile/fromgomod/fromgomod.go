@@ -12,6 +12,7 @@ import (
 )
 
 func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
+	prof.Module = mod.Module.Mod.Path
 	currentDefaultPolicy := profile.PolicyUnconfined
 
 	for _, c := range append(mod.Module.Syntax.Before, mod.Module.Syntax.Suffix...) {
