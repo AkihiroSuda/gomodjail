@@ -4,6 +4,7 @@
 package unwinder
 
 import (
+	"debug/buildinfo"
 	"debug/elf"
 	"debug/gosym"
 	"fmt"
@@ -13,7 +14,8 @@ import (
 )
 
 type Unwinder struct {
-	Symtab *gosym.Table
+	Symtab    *gosym.Table
+	BuildInfo *buildinfo.BuildInfo
 }
 
 func New(binary string) (*Unwinder, error) {
@@ -52,8 +54,14 @@ func New(binary string) (*Unwinder, error) {
 		return nil, err
 	}
 
+	buildInfo, err := buildinfo.ReadFile(binary)
+	if err != nil {
+		return nil, err
+	}
+
 	u := &Unwinder{
-		Symtab: symtab,
+		Symtab:    symtab,
+		BuildInfo: buildInfo,
 	}
 	return u, nil
 }

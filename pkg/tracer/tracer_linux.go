@@ -173,6 +173,7 @@ func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 			return err
 		}
 		tracer.unwinders[filename] = uw
+		slog.Debug("registered an executable", "exe", filename, "mainModule", uw.BuildInfo.Main.Path)
 	}
 	if uw == nil { // No gosymtab
 		return nil
@@ -185,7 +186,7 @@ func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	for i, e := range entries {
 		slog.Debug("stack", "entryNo", i, "entry", e.String())
 		pkgName := e.Func.PackageName()
-		if cf := tracer.profile.Confined(pkgName); cf != nil {
+		if cf := tracer.profile.Confined(uw.BuildInfo.Main.Path, pkgName); cf != nil {
 			slog.Warn("***Blocked***", "pid", pid, "exe", filename, "syscall", syscallName, "entry", e.String(), "module", cf.Module)
 			ret := -1 * int(unix.EPERM)
 			regs.SetRet(uint64(ret))

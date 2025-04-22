@@ -1,6 +1,7 @@
 package tracer
 
 import (
+	"debug/buildinfo"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
 )
@@ -51,10 +53,11 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	)
 
 	tracer := &tracer{
-		cmd:     cmd,
-		profile: profile,
-		ln:      ln,
-		tmpDir:  tmpDir,
+		cmd:         cmd,
+		profile:     profile,
+		ln:          ln,
+		tmpDir:      tmpDir,
+		mainModules: make(map[string]string),
 	}
 	for k, v := range profile.Modules {
 		slog.Debug("Loading profile", "module", k, "policy", v)
@@ -63,10 +66,12 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 }
 
 type tracer struct {
-	cmd     *exec.Cmd
-	profile *profile.Profile
-	ln      net.Listener
-	tmpDir  string
+	cmd         *exec.Cmd
+	profile     *profile.Profile
+	ln          net.Listener
+	tmpDir      string
+	mainModules map[string]string // key: filename, value: main module
+	mu          sync.RWMutex
 }
 
 // Trace traces the process.
@@ -127,9 +132,23 @@ func (tracer *tracer) handlerConn(c net.Conn) error {
 	}
 	slog.Debug("handling request", "req", req)
 
+	tracer.mu.RLock()
+	mainModule := tracer.mainModules[req.Exe]
+	tracer.mu.RUnlock()
+	if mainModule == "" {
+		buildInfo, err := buildinfo.ReadFile(req.Exe)
+		if err != nil {
+			return err
+		}
+		mainModule = buildInfo.Main.Path
+		tracer.mu.Lock()
+		tracer.mainModules[req.Exe] = mainModule
+		tracer.mu.Unlock()
+	}
+
 	allow := true
 	for _, e := range req.Stack {
-		if cf := tracer.profile.Confined(e.Symbol); cf != nil {
+		if cf := tracer.profile.Confined(mainModule, e.Symbol); cf != nil {
 			slog.Warn("***Blocked***", "pid", req.Pid, "exe", req.Exe, "syscall", req.Syscall, "entry", e, "module", cf.Module)
 			allow = false
 			break
