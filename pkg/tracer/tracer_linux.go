@@ -100,7 +100,11 @@ func (tracer *tracer) Trace() error {
 	for {
 		// trace may call os.Exit
 		if err = tracer.trace(pGid); err != nil {
-			return err
+			if errors.Is(err, unix.ESRCH) {
+				slog.Debug("ESRCH", "error", err)
+			} else {
+				return err
+			}
 		}
 	}
 }
