@@ -1,7 +1,6 @@
 package profile
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -38,7 +37,7 @@ type Profile struct {
 
 func (p *Profile) Validate() error {
 	if p.Module == "" {
-		return errors.New("no module was specified")
+		slog.Warn("No module was specified")
 	}
 	if len(p.Modules) == 0 {
 		slog.Warn("No policy was specified")
