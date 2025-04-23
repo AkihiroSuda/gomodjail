@@ -96,46 +96,54 @@ func (tracer *tracer) Trace() error {
 	if err := unix.PtraceCont(wPid, 0); err != nil {
 		return fmt.Errorf("failed to call PTRACE_CONT (pid=%d) %w", wPid, err)
 	}
+
 	for {
-		var ws unix.WaitStatus
-		wPid, err = unix.Wait4(-1*pGid, &ws, unix.WALL, nil)
-		if err != nil {
+		// trace may call os.Exit
+		if err = tracer.trace(pGid); err != nil {
 			return err
 		}
-		switch {
-		case ws.Exited():
-			exitStatus := ws.ExitStatus()
-			if wPid == tracer.cmd.Process.Pid {
-				if exitStatus == 0 {
-					slog.Debug("exiting")
-				} else {
-					slog.Error("exiting with non-zero status", "status", exitStatus)
-				}
-				os.Exit(exitStatus)
-				return nil
-			}
-			continue
-		}
-		switch uint32(ws) >> 8 {
-		case uint32(unix.SIGTRAP) | (unix.PTRACE_EVENT_SECCOMP << 8):
-			var regs regs.Regs
-			if err = unix.PtraceGetRegs(wPid, &regs.PtraceRegs); err != nil {
-				return fmt.Errorf("failed to read registers for %d: %w", wPid, err)
-			}
-			if err = tracer.handleSyscall(wPid, &regs); err != nil {
-				slog.Debug("failed to handle syscall", "pid", wPid, "syscall", regs.Syscall(), "error", err)
+	}
+}
+
+func (tracer *tracer) trace(pGid int) error {
+	var ws unix.WaitStatus
+	wPid, err := unix.Wait4(-1*pGid, &ws, unix.WALL, nil)
+	if err != nil {
+		return err
+	}
+	switch {
+	case ws.Exited():
+		exitStatus := ws.ExitStatus()
+		if wPid == tracer.cmd.Process.Pid {
+			if exitStatus == 0 {
+				slog.Debug("exiting")
 			} else {
-				if regs.Modified {
-					if err = unix.PtraceSetRegs(wPid, &regs.PtraceRegs); err != nil {
-						return fmt.Errorf("failed to set registers for %d: %w", wPid, err)
-					}
+				slog.Error("exiting with non-zero status", "status", exitStatus)
+			}
+			os.Exit(exitStatus)
+		}
+		return nil
+	}
+	switch uint32(ws) >> 8 {
+	case uint32(unix.SIGTRAP) | (unix.PTRACE_EVENT_SECCOMP << 8):
+		var regs regs.Regs
+		if err = unix.PtraceGetRegs(wPid, &regs.PtraceRegs); err != nil {
+			return fmt.Errorf("failed to read registers for %d: %w", wPid, err)
+		}
+		if err = tracer.handleSyscall(wPid, &regs); err != nil {
+			slog.Debug("failed to handle syscall", "pid", wPid, "syscall", regs.Syscall(), "error", err)
+		} else {
+			if regs.Modified {
+				if err = unix.PtraceSetRegs(wPid, &regs.PtraceRegs); err != nil {
+					return fmt.Errorf("failed to set registers for %d: %w", wPid, err)
 				}
 			}
-		}
-		if err := unix.PtraceCont(wPid, 0); err != nil {
-			return fmt.Errorf("failed to call PTRACE_CONT (pid=%d) %w", wPid, err)
 		}
 	}
+	if err := unix.PtraceCont(wPid, 0); err != nil {
+		return fmt.Errorf("failed to call PTRACE_CONT (pid=%d) %w", wPid, err)
+	}
+	return nil
 }
 
 func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
