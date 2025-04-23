@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 )
 
 type Policy = string
@@ -22,13 +23,17 @@ var KnownPolicies = []Policy{
 
 func New() *Profile {
 	return &Profile{
-		Modules: make(map[string]Policy),
+		Modules:                make(map[string]Policy),
+		moduleMismatchWarnOnce: make(map[string]struct{}),
 	}
 }
 
 type Profile struct {
 	Module  string            // the "module" line of go.mod
 	Modules map[string]Policy // the "require" lines of go.mod TODO: rename to "Requires"? "Dependencies"?
+
+	moduleMismatchWarnOnce   map[string]struct{}
+	moduleMismatchWarnOnceMu sync.RWMutex
 }
 
 func (p *Profile) Validate() error {
@@ -54,7 +59,16 @@ type Confinment struct {
 
 func (p *Profile) Confined(mainMod, sym string) *Confinment {
 	if mainMod != p.Module {
-		slog.Warn("module mismatch", "a", mainMod, "b", p.Module)
+		k := mainMod + "," + p.Module
+		p.moduleMismatchWarnOnceMu.RLock()
+		_, warned := p.moduleMismatchWarnOnce[k]
+		p.moduleMismatchWarnOnceMu.RUnlock()
+		if !warned {
+			slog.Warn("module mismatch", "a", mainMod, "b", p.Module)
+			p.moduleMismatchWarnOnceMu.Lock()
+			p.moduleMismatchWarnOnce[k] = struct{}{}
+			p.moduleMismatchWarnOnceMu.Unlock()
+		}
 		return nil
 	}
 	for module, policy := range p.Modules {
