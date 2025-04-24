@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/env"
+	"github.com/AkihiroSuda/gomodjail/pkg/osargs"
 )
 
 func createCmd(_ []string) (*exec.Cmd, error) {
@@ -12,7 +13,8 @@ func createCmd(_ []string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(self, os.Args[1:]...)
+	// osargs.OSArgs is basically os.Args but is overridden on self-extract mode
+	cmd := exec.Command(self, osargs.OSArgs()[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
