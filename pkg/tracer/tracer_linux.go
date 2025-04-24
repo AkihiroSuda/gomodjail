@@ -64,7 +64,6 @@ const commonPtraceOptions = unix.PTRACE_O_TRACEFORK |
 	unix.PTRACE_O_EXITKILL
 
 // Trace traces the process.
-// Trace may call [os.Exit].
 func (tracer *tracer) Trace() error {
 	runtime.LockOSThread() // required by SysProcAttr.Ptrace
 
@@ -98,7 +97,6 @@ func (tracer *tracer) Trace() error {
 	}
 
 	for {
-		// trace may call os.Exit
 		if err = tracer.trace(pGid); err != nil {
 			if errors.Is(err, unix.ESRCH) {
 				slog.Debug("ESRCH", "error", err)
@@ -119,12 +117,9 @@ func (tracer *tracer) trace(pGid int) error {
 	case ws.Exited():
 		exitStatus := ws.ExitStatus()
 		if wPid == tracer.cmd.Process.Pid {
-			if exitStatus == 0 {
-				slog.Debug("exiting")
-			} else {
-				slog.Error("exiting with non-zero status", "status", exitStatus)
+			return &ExitError{
+				ExitCode: exitStatus,
 			}
-			os.Exit(exitStatus)
 		}
 		return nil
 	}

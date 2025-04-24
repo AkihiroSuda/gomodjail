@@ -75,7 +75,6 @@ type tracer struct {
 }
 
 // Trace traces the process.
-// Trace may call [os.Exit].
 func (tracer *tracer) Trace() error {
 	go func() {
 		for {
