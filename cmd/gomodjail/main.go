@@ -15,6 +15,7 @@ import (
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
 	"github.com/AkihiroSuda/gomodjail/pkg/env"
 	"github.com/AkihiroSuda/gomodjail/pkg/envutil"
+	"github.com/AkihiroSuda/gomodjail/pkg/osargs"
 	"github.com/AkihiroSuda/gomodjail/pkg/tracer"
 	"github.com/AkihiroSuda/gomodjail/pkg/ziputil"
 	"github.com/spf13/cobra"
@@ -156,8 +157,9 @@ func configureSelfExtractMode(rootCmd *cobra.Command, zr *zip.ReadCloser) (error
 			return err, closer
 		}
 	}
-	args := append([]string{"run", "--go-mod=" + goMod, prog, "--"}, os.Args[1:]...)
+	args := append([]string{os.Args[0], "run", "--go-mod=" + goMod, prog, "--"}, os.Args[1:]...)
 	slog.Debug("Reconfiguring the top-level command", "args", args)
-	rootCmd.SetArgs(args)
+	rootCmd.SetArgs(args[1:])
+	osargs.SetOSArgs(args)
 	return nil, closer
 }
