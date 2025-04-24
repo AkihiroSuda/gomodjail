@@ -13,7 +13,9 @@ import (
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/pack"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/run"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
+	"github.com/AkihiroSuda/gomodjail/pkg/env"
 	"github.com/AkihiroSuda/gomodjail/pkg/envutil"
+	"github.com/AkihiroSuda/gomodjail/pkg/tracer"
 	"github.com/AkihiroSuda/gomodjail/pkg/ziputil"
 	"github.com/spf13/cobra"
 )
@@ -21,33 +23,57 @@ import (
 var logLevel = new(slog.LevelVar)
 
 func main() {
+	exitCode, closer := xmain()
+	if closer != nil {
+		if cErr := closer(); cErr != nil {
+			slog.Error("failed to call closer", "error", cErr)
+		}
+	}
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
+}
+
+func xmain() (int, func() error) {
+	var closer func() error
 	logHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})
 	slog.SetDefault(slog.New(logHandler))
 	rootCmd := newRootCommand()
-	zr, err := ziputil.FindSelfExtractArchive()
-	if err != nil {
-		slog.Error("error while detecting self-extract archive", "error", err)
-	}
-	if zr != nil {
-		err, closer := configureSelfExtractMode(rootCmd, zr)
-		_ = zr.Close()
-		defer closer() //nolint:errcheck
+	if _, ok := os.LookupEnv(env.PrivateChild); !ok {
+		zr, err := ziputil.FindSelfExtractArchive()
 		if err != nil {
-			slog.Error("exiting with an error while setting up self-extract mode", "error", err)
-			os.Exit(1)
+			slog.Error("error while detecting self-extract archive", "error", err)
+		}
+		if zr != nil {
+			var err error
+			err, closer = configureSelfExtractMode(rootCmd, zr)
+			if cErr := zr.Close(); cErr != nil {
+				slog.Error("failed to call closer", "error", cErr)
+			}
+			if err != nil {
+				slog.Error("exiting with an error while setting up self-extract mode", "error", err)
+				return 1, closer
+			}
 		}
 	}
-	err = rootCmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		exitCode := 1
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			if ps := exitErr.ProcessState; ps != nil {
 				exitCode = ps.ExitCode()
 			}
+		} else if exitErr, ok := err.(*tracer.ExitError); ok {
+			exitCode = exitErr.ExitCode
 		}
-		slog.Error("exiting with an error", "error", err)
-		os.Exit(exitCode)
+		if exitCode != 0 {
+			slog.Error("exiting with an error", "error", err, "exitCode", exitCode)
+		} else {
+			slog.Debug("exiting")
+		}
+		return exitCode, closer
 	}
+	return 0, closer
 }
 
 func newRootCommand() *cobra.Command {
@@ -89,7 +115,9 @@ func configureSelfExtractMode(rootCmd *cobra.Command, zr *zip.ReadCloser) (error
 	if err != nil {
 		return err, nil
 	}
+	slog.Debug("created self-extract dir", "path", td)
 	closer := func() error {
+		slog.Debug("removing self-extract dir", "path", td)
 		return os.RemoveAll(td)
 	}
 

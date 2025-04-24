@@ -62,6 +62,10 @@ jobs:
           # Packed mode
           gomodjail pack --go-mod=go.mod ./victim
           ./victim.gomodjail
+          if [ "$(find /tmp -maxdepth 1 -type d -name 'gomodjail*' | awk 'END{print NR}')" != "0" ]; then
+            echo >&2 "tmp files are leaked"
+            exit 1
+          fi
       - name: "Smoke test: docker (not dockerd)"
         if: runner.os == 'Linux'
         timeout-minutes: 5
