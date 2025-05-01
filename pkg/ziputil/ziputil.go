@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -70,6 +71,13 @@ func FindSelfExtractArchive() (*zip.ReadCloser, error) {
 }
 
 func Unzip(dir string, zr *zip.ReadCloser) ([]fs.FileInfo, error) {
+	// https://specifications.freedesktop.org/basedir-spec/latest/#variables
+	// To ensure that your files are not removed, they should have their access time timestamp modified at least once every 6 hours of monotonic time
+	// or the 'sticky' bit should be set on the file.
+	if err := os.MkdirAll(dir, 0o755|os.ModeSticky); err != nil {
+		return nil, err
+	}
+
 	res := make([]fs.FileInfo, len(zr.File))
 	for i, f := range zr.File {
 		if err := unzip1(dir, f); err != nil {
@@ -96,7 +104,18 @@ func unzip1(dir string, f *zip.File) error {
 		return fmt.Errorf("unexpected file: %q", fs.FormatFileInfo(fi))
 	}
 	wPath := filepath.Join(dir, baseName)
-	w, err := os.OpenFile(wPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode())
+	modTime := fi.ModTime()
+	if st, err := os.Stat(wPath); err == nil && st.ModTime().Equal(modTime) && modTime.UnixNano() != 0 {
+		// TODO: compare digest too (via xattr? fs-verity?)
+		slog.Debug("already exists", "path", wPath, "modTime", modTime)
+		return nil
+	}
+
+	// for atomicity
+	wPathTmp := fmt.Sprintf("%s.pid-%d", wPath, os.Getpid())
+	defer os.RemoveAll(wPathTmp) //nolint:errcheck
+
+	w, err := os.OpenFile(wPathTmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode()|os.ModeSticky)
 	if err != nil {
 		return err
 	}
@@ -109,8 +128,13 @@ func unzip1(dir string, f *zip.File) error {
 			return err
 		}
 	}
-	modTime := fi.ModTime()
-	if err = os.Chtimes(wPath, modTime, modTime); err != nil {
+	if err = os.Chtimes(wPathTmp, modTime, modTime); err != nil {
+		return err
+	}
+	if err = os.RemoveAll(wPath); err != nil {
+		return err
+	}
+	if err = os.Rename(wPathTmp, wPath); err != nil {
 		return err
 	}
 	return nil
