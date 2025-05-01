@@ -71,13 +71,9 @@ func FindSelfExtractArchive() (*zip.ReadCloser, error) {
 }
 
 func Unzip(dir string, zr *zip.ReadCloser) ([]fs.FileInfo, error) {
-	// https://specifications.freedesktop.org/basedir-spec/latest/#variables
-	// To ensure that your files are not removed, they should have their access time timestamp modified at least once every 6 hours of monotonic time
-	// or the 'sticky' bit should be set on the file.
-	if err := os.MkdirAll(dir, 0o755|os.ModeSticky); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-
 	res := make([]fs.FileInfo, len(zr.File))
 	for i, f := range zr.File {
 		if err := unzip1(dir, f); err != nil {
@@ -115,7 +111,7 @@ func unzip1(dir string, f *zip.File) error {
 	wPathTmp := fmt.Sprintf("%s.pid-%d", wPath, os.Getpid())
 	defer os.RemoveAll(wPathTmp) //nolint:errcheck
 
-	w, err := os.OpenFile(wPathTmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode()|os.ModeSticky)
+	w, err := os.OpenFile(wPathTmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode())
 	if err != nil {
 		return err
 	}
