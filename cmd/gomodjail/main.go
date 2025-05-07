@@ -61,7 +61,7 @@ func xmain() int {
 			exitCode = exitErr.ExitCode
 		}
 		if exitCode != 0 {
-			slog.Error("exiting with an error", "error", err, "exitCode", exitCode)
+			slog.Debug("exiting with an error", "error", err, "exitCode", exitCode)
 		} else {
 			slog.Debug("exiting")
 		}
