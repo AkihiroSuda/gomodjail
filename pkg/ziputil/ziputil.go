@@ -10,6 +10,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/sys/unix"
 )
 
 // SelfExtractArchiveComment is the comment present in the End Of Central Directory Record.
@@ -74,6 +76,23 @@ func Unzip(dir string, zr *zip.ReadCloser) ([]fs.FileInfo, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
+
+	dirFile, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer dirFile.Close() //nolint:errcheck
+
+	if err = flock(dirFile, unix.LOCK_EX); err != nil {
+		slog.Warn("failed to lock dir", "path", dir, "error", err)
+	} else {
+		defer func() {
+			if err = flock(dirFile, unix.LOCK_UN); err != nil {
+				slog.Warn("failed to unlock dir", "path", dir, "error", err)
+			}
+		}()
+	}
+
 	res := make([]fs.FileInfo, len(zr.File))
 	for i, f := range zr.File {
 		if err := unzip1(dir, f); err != nil {
@@ -134,4 +153,14 @@ func unzip1(dir string, f *zip.File) error {
 		return err
 	}
 	return nil
+}
+
+func flock(f *os.File, flags int) error {
+	fd := int(f.Fd())
+	for {
+		err := unix.Flock(fd, flags)
+		if err == nil || err != unix.EINTR {
+			return err
+		}
+	}
 }
