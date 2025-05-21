@@ -125,3 +125,4 @@ macOS:
 
 ## Additional documents
 - [`docs/syntax.md`](./docs/syntax.md): syntax
+- [`examples/profiles/README.md`](./examples/profiles/README.md): profiles
