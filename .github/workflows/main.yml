@@ -29,6 +29,9 @@ jobs:
           - runner: macos-15  # ARM
             go: 1.24.x
             build_mode: ""
+          - runner: macos-15  # ARM
+            go: 1.25.0-rc.1
+            build_mode: ""
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     steps:
