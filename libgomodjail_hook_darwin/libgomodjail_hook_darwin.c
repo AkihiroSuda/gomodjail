@@ -60,6 +60,14 @@ struct go_runtime_offset {
 static struct go_runtime_offset go_runtime_offsets[] = {
     /* When updating the list, update README.md too */
     {
+        /* go1.25rc1 */
+        .version_prefix = "go1.25",
+        .g_m = 48,
+        .m_libcallpc = 848,
+        .m_libcallsp = 856,
+    },
+
+    {
         /* go1.24.0 */
         .version_prefix = "go1.24",
         .g_m = 48,
