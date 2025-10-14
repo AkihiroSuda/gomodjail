@@ -1,18 +1,21 @@
 package tracer
 
 import (
-	"debug/buildinfo"
+	"debug/gosym"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
+	"github.com/AkihiroSuda/gomodjail/pkg/unwinder"
 )
 
 func LibgomodjailHook() (string, error) {
@@ -33,7 +36,34 @@ func LibgomodjailHook() (string, error) {
 	return hookDylib, nil
 }
 
+func findRuntimeLoadG(symtab *gosym.Table) (uintptr, error) {
+	found := symtab.LookupFunc("runtime.load_g")
+	if found == nil {
+		return 0, errors.New("runtime.load_g not found")
+	}
+	return uintptr(found.Value), nil
+}
+
 func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
+	uw, err := unwinder.New(cmd.Path)
+	if err != nil {
+		return nil, err
+	}
+	symtab := uw.Symtab()
+	// len(symtab.Syms) is zero on stripped Mach-O binaries
+	slog.Debug("symtab", "syms", symtab.Syms)
+	for _, fn := range symtab.Funcs {
+		slog.Debug("func", "name", fn.Name, "entry", fmt.Sprintf("%#x", fn.Entry))
+	}
+
+	var loadG uintptr
+	if runtime.GOARCH == "arm64" {
+		loadG, err = findRuntimeLoadG(symtab)
+		if err != nil {
+			slog.Warn("failed to find runtime.load_g", "error", err)
+		}
+		slog.Debug("found runtime.load_g", "address", fmt.Sprintf("%d", loadG))
+	}
 	tmpDir, err := os.MkdirTemp("", "gomodjail")
 	if err != nil {
 		return nil, err
@@ -51,14 +81,20 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 		"DYLD_INSERT_LIBRARIES="+hookDylib,
 		"LIBGOMODJAIL_HOOK_SOCKET="+sock,
 	)
+	if loadG != 0 {
+		cmd.Env = append(cmd.Env,
+			fmt.Sprintf("LIBGOMODJAIL_HOOK_LOAD_G_ADDR=%d", loadG),
+		)
+	}
 
 	tracer := &tracer{
-		cmd:         cmd,
-		profile:     profile,
-		ln:          ln,
-		tmpDir:      tmpDir,
-		mainModules: make(map[string]string),
+		cmd:       cmd,
+		profile:   profile,
+		ln:        ln,
+		tmpDir:    tmpDir,
+		unwinders: map[string]unwinder.Unwinder{cmd.Path: uw},
 	}
+	tracer.unwinders[cmd.Path] = uw
 	for k, v := range profile.Modules {
 		slog.Debug("Loading profile", "module", k, "policy", v)
 	}
@@ -66,12 +102,12 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 }
 
 type tracer struct {
-	cmd         *exec.Cmd
-	profile     *profile.Profile
-	ln          net.Listener
-	tmpDir      string
-	mainModules map[string]string // key: filename, value: main module
-	mu          sync.RWMutex
+	cmd       *exec.Cmd
+	profile   *profile.Profile
+	ln        net.Listener
+	tmpDir    string
+	unwinders map[string]unwinder.Unwinder
+	mu        sync.RWMutex
 }
 
 // Trace traces the process.
@@ -132,25 +168,41 @@ func (tracer *tracer) handlerConn(c net.Conn) error {
 	slog.Debug("handling request", "req", req)
 
 	tracer.mu.RLock()
-	mainModule := tracer.mainModules[req.Exe]
+	uw, ok := tracer.unwinders[req.Exe]
 	tracer.mu.RUnlock()
-	if mainModule == "" {
-		buildInfo, err := buildinfo.ReadFile(req.Exe)
-		if err != nil {
+	if !ok {
+		var err error
+		uw, err = unwinder.New(req.Exe)
+		if err != nil { // No gosymtab
+			tracer.unwinders[req.Exe] = nil
 			return err
 		}
-		mainModule = buildInfo.Main.Path
-		tracer.mu.Lock()
-		tracer.mainModules[req.Exe] = mainModule
-		tracer.mu.Unlock()
+		tracer.unwinders[req.Exe] = uw
+		slog.Debug("registered an executable", "exe", req.Exe, "mainModule", uw.BuildInfo().Main.Path)
 	}
+	if uw == nil { // No gosymtab
+		return nil
+	}
+	symtab := uw.Symtab()
+	buildInfo := uw.BuildInfo()
+	mainModule := buildInfo.Main.Path
 
 	allow := true
 	for _, e := range req.Stack {
-		if cf := tracer.profile.Confined(mainModule, e.Symbol); cf != nil {
-			slog.Warn("***Blocked***", "pid", req.Pid, "exe", req.Exe, "syscall", req.Syscall, "entry", e, "module", cf.Module)
-			allow = false
-			break
+		sym := e.Symbol
+		if sym == "" {
+			_, _, fn := symtab.PCToLine(e.Address)
+			if fn != nil {
+				sym = fn.Name
+				slog.Debug("symtab", "address", fmt.Sprintf("0x%x", e.Address), "sym", sym)
+			}
+		}
+		if sym != "" {
+			if cf := tracer.profile.Confined(mainModule, sym); cf != nil {
+				slog.Warn("***Blocked***", "pid", req.Pid, "exe", req.Exe, "syscall", req.Syscall, "entry", e, "module", cf.Module, "sym", sym)
+				allow = false
+				break
+			}
 		}
 	}
 

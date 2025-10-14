@@ -29,6 +29,9 @@ jobs:
           - runner: macos-26  # ARM
             go: 1.25.x
             build_mode: ""
+          - runner: macos-26  # ARM
+            go: 1.25.x
+            build_mode: "strip"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     steps:
