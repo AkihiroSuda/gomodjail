@@ -2,6 +2,8 @@ package tracer
 
 import (
 	"debug/buildinfo"
+	"debug/gosym"
+	"debug/macho"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -33,7 +35,57 @@ func LibgomodjailHook() (string, error) {
 	return hookDylib, nil
 }
 
+func findRuntimeLoadG(binary string) (uintptr, error) {
+	f, err := macho.Open(binary)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close() //nolint:errcheck
+
+	gopclntabSec := f.Section("__gopclntab")
+	if gopclntabSec == nil {
+		return 0, fmt.Errorf("no __gopclntab section found in %q", binary)
+	}
+	gopclntabData, err := gopclntabSec.Data()
+	if err != nil {
+		return 0, err
+	}
+	textSec := f.Section("__text")
+	if textSec == nil {
+		return 0, fmt.Errorf("no __text section found in %q", binary)
+	}
+
+	var gosymtabData []byte
+	gosymtabSec := f.Section("__gosymtab")
+	if gosymtabSec == nil {
+		slog.Warn("no __gosymtab section found", "binary", binary)
+		// gopclntab seems to suffice in this case
+	} else {
+		gosymtabData, err = gosymtabSec.Data()
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	symtab, err := gosym.NewTable(gosymtabData,
+		gosym.NewLineTable(gopclntabData, textSec.Addr))
+	if err != nil {
+		return 0, err
+	}
+
+	found := symtab.LookupFunc("runtime.load_g")
+	if found == nil {
+		return 0, fmt.Errorf("runtime.load_g not found in %q", binary)
+	}
+	return uintptr(found.Value), nil
+}
+
 func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
+	loadG, err := findRuntimeLoadG(cmd.Path)
+	if err != nil {
+		slog.Warn("failed to find runtime.load_g", "error", err)
+	}
+	slog.Debug("found runtime.load_g", "address", fmt.Sprintf("%d", loadG))
 	tmpDir, err := os.MkdirTemp("", "gomodjail")
 	if err != nil {
 		return nil, err
@@ -50,6 +102,7 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	cmd.Env = append(os.Environ(),
 		"DYLD_INSERT_LIBRARIES="+hookDylib,
 		"LIBGOMODJAIL_HOOK_SOCKET="+sock,
+		"LIBGOMODJAIL_HOOK_LOAD_G_ADDR="+fmt.Sprintf("%d", loadG),
 	)
 
 	tracer := &tracer{
