@@ -44,7 +44,7 @@ jobs:
       - name: Unit tests
         run: go test -v ./...
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
       - name: Smoke test
         timeout-minutes: 5
         env:
