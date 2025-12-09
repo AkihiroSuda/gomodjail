@@ -19,7 +19,7 @@ jobs:
           - runner: ubuntu-24.04  # Intel
             go: 1.25.x
             build_mode: "strip"
-          - runner: macos-13  # Intel
+          - runner: macos-15-intel  # Intel
             go: 1.25.x
             build_mode: ""
           - runner: macos-15  # ARM
