@@ -37,7 +37,7 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 		profile:   profile,
 		selfExe:   selfExe,
 		pids:      make(map[int]string),
-		unwinders: make(map[string]*unwinder.Unwinder),
+		unwinders: make(map[string]unwinder.Unwinder),
 		archInfo:  archInfo,
 	}
 	for k, v := range profile.Modules {
@@ -50,8 +50,8 @@ type tracer struct {
 	cmd       *exec.Cmd
 	profile   *profile.Profile
 	selfExe   string
-	pids      map[int]string                // key: pid, value: file name
-	unwinders map[string]*unwinder.Unwinder // key: file name
+	pids      map[int]string               // key: pid, value: file name
+	unwinders map[string]unwinder.Unwinder // key: file name
 	archInfo  *arch.Info
 }
 
@@ -180,7 +180,7 @@ func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 			return err
 		}
 		tracer.unwinders[filename] = uw
-		slog.Debug("registered an executable", "exe", filename, "mainModule", uw.BuildInfo.Main.Path)
+		slog.Debug("registered an executable", "exe", filename, "mainModule", uw.BuildInfo().Main.Path)
 	}
 	if uw == nil { // No gosymtab
 		return nil
@@ -189,11 +189,12 @@ func (tracer *tracer) handleSyscall(pid int, regs *regs.Regs) error {
 	if err != nil {
 		return err
 	}
+	buildInfo := uw.BuildInfo()
 	slog.Debug("handler", "pid", pid, "exe", filename, "syscall", syscallName)
 	for i, e := range entries {
 		slog.Debug("stack", "entryNo", i, "entry", e.String())
 		pkgName := e.Func.PackageName()
-		if cf := tracer.profile.Confined(uw.BuildInfo.Main.Path, pkgName); cf != nil {
+		if cf := tracer.profile.Confined(buildInfo.Main.Path, pkgName); cf != nil {
 			slog.Warn("***Blocked***", "pid", pid, "exe", filename, "syscall", syscallName, "entry", e.String(), "module", cf.Module)
 			ret := -1 * int(unix.EPERM)
 			regs.SetRet(uint64(ret))
