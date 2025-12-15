@@ -4,69 +4,46 @@
 package unwinder
 
 import (
-	"debug/buildinfo"
 	"debug/elf"
-	"debug/gosym"
-	"fmt"
-	"log/slog"
 
 	"github.com/AkihiroSuda/gomodjail/pkg/procutil"
 )
 
-type Unwinder struct {
-	Symtab    *gosym.Table
-	BuildInfo *buildinfo.BuildInfo
+const (
+	gopclntabSectionName = ".gopclntab"
+	textSectionName      = ".text"
+	gosymtabSectionName  = ".gosymtab"
+)
+
+type elfObjectFile struct {
+	*elf.File
 }
 
-func New(binary string) (*Unwinder, error) {
-	e, err := elf.Open(binary)
-	if err != nil {
-		return nil, err
+func (e *elfObjectFile) Section(name string) Section {
+	section := e.File.Section(name)
+	if section == nil {
+		return nil
 	}
-	gopclntabSec := e.Section(".gopclntab")
-	if gopclntabSec == nil {
-		return nil, fmt.Errorf("no .gopclntab section found in %q", binary)
-	}
-	gopclntabData, err := gopclntabSec.Data()
-	if err != nil {
-		return nil, err
-	}
-	textSec := e.Section(".text")
-	if textSec == nil {
-		return nil, fmt.Errorf("no .text section found in %q", binary)
-	}
-
-	var gosymtabData []byte
-	gosymtabSec := e.Section(".gosymtab")
-	if gosymtabSec == nil {
-		slog.Warn("no .gosymtab section found", "binary", binary)
-		// gopclntab seems to suffice in this case
-	} else {
-		gosymtabData, err = gosymtabSec.Data()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	symtab, err := gosym.NewTable(gosymtabData,
-		gosym.NewLineTable(gopclntabData, textSec.Addr))
-	if err != nil {
-		return nil, err
-	}
-
-	buildInfo, err := buildinfo.ReadFile(binary)
-	if err != nil {
-		return nil, err
-	}
-
-	u := &Unwinder{
-		Symtab:    symtab,
-		BuildInfo: buildInfo,
-	}
-	return u, nil
+	return &elfSection{Section: section}
 }
 
-func (u *Unwinder) Unwind(pid int, pc, bp uintptr) ([]Entry, error) {
+type elfSection struct {
+	*elf.Section
+}
+
+func (s *elfSection) Addr() uint64 {
+	return s.Section.Addr
+}
+
+func openObjectFile(path string) (ObjectFile, error) {
+	f, err := elf.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return &elfObjectFile{File: f}, nil
+}
+
+func (u *unwinder) unwind(pid int, pc, bp uintptr) ([]Entry, error) {
 	var res []Entry
 	frameCount := 0
 	const maxFrames = 1024
@@ -81,7 +58,7 @@ func (u *Unwinder) Unwind(pid int, pc, bp uintptr) ([]Entry, error) {
 			return res, err
 		}
 		var ent Entry
-		ent.File, ent.Line, ent.Func = u.Symtab.PCToLine(uint64(pc))
+		ent.File, ent.Line, ent.Func = u.symtab.PCToLine(uint64(pc))
 		if ent.Func != nil {
 			res = append(res, ent)
 		}
@@ -90,14 +67,4 @@ func (u *Unwinder) Unwind(pid int, pc, bp uintptr) ([]Entry, error) {
 		frameCount++
 	}
 	return res, nil
-}
-
-type Entry struct {
-	File string
-	Line int
-	Func *gosym.Func
-}
-
-func (e *Entry) String() string {
-	return fmt.Sprintf("%s:%d:%s", e.File, e.Line, e.Func.Name)
 }

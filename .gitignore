@@ -2,7 +2,9 @@
 /_output
 /gomodjail
 /victim
+/victim.*
 /examples/victim/victim
+/examples/victim/victim.*
 *.o
 *.dylib
 *.gomodjail
