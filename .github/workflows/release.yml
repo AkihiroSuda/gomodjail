@@ -16,7 +16,7 @@ jobs:
     env:
       GOTOOLCHAIN: local
     # The macOS runner can cross-compile Linux binaries, but not vice versa.
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 20
     # The maximum access is "read" for PRs from public forked repos
     # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
