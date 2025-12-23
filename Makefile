@@ -24,7 +24,7 @@ BINARIES := _output/bin/gomodjail
 ifeq ($(GOOS),darwin)
 	BINARIES += _output/lib/libgomodjail_hook_darwin.dylib
 ifneq (,$(findstring arm64,$(GOARCH)))
-	CFLAGS += -arch arm64
+	CFLAGS += -arch arm64e
 else ifneq (,$(findstring amd64,$(GOARCH)))
 	CFLAGS += -arch x86_64
 endif
