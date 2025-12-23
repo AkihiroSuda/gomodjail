@@ -30,6 +30,9 @@ jobs:
             go: 1.25.x
             build_mode: ""
           - runner: macos-26  # ARM
+            go: 1.26.0-rc.1
+            build_mode: ""
+          - runner: macos-26  # ARM
             go: 1.25.x
             build_mode: "strip"
     runs-on: ${{ matrix.runner }}
