@@ -214,6 +214,8 @@ done:
 
 static void init() __attribute__((constructor));
 
+static uint64_t (*runtime_load_g)(void) = NULL;
+
 static void init() {
   debug = getenv("DEBUG") != NULL;
   if (_NSGetExecutablePath(exe_path, &exe_path_len) != 0) {
@@ -244,6 +246,27 @@ static void init() {
     ERRORF("%s: Unsupported Go version: \"%s\"", exe_path, go_version);
     return;
   }
+  if (!go_runtime_info.tls_g_addr) { /* stripped binary */
+#ifdef __aarch64__
+    const char *load_g_str = getenv("LIBGOMODJAIL_HOOK_LOAD_G_ADDR");
+    if (!load_g_str) {
+      ERRORF("%s: _runtime.tls_g not found, and LIBGOMODJAIL_HOOK_LOAD_G_ADDR is unset",
+             exe_path);
+      return;
+    }
+    char *endptr;
+    uint64_t load_g = strtoull(load_g_str, &endptr, 10);
+    if (endptr == load_g_str || *endptr != '\0' || load_g == 0) {
+      ERRORF("%s: failed to parse LIBGOMODJAIL_HOOK_LOAD_G_ADDR=%s", exe_path,
+             load_g_str);
+      return;
+    }
+    DEBUGF("%s: using runtime_load_g at %lld", exe_path, load_g);
+    runtime_load_g = (uint64_t (*)(void))load_g;
+    const int image_index = 1; /* FIXME: parse */
+    runtime_load_g = _dyld_get_image_vmaddr_slide(image_index) + (void *)load_g;
+#endif
+  }
   enabled = true;
 }
 
@@ -252,8 +275,20 @@ static uint64_t fetch_g() {
   uintptr_t tls_base;
   __asm__ __volatile__("mrs %0, tpidrro_el0" : "=r"(tls_base));
   tls_base &= ~((uintptr_t)7);
-  uint64_t runtime_tls_g = *go_runtime_info.tls_g_addr;
-  return *(uint64_t *)(tls_base + runtime_tls_g);
+  uint64_t runtime_tls_g;
+  if (go_runtime_info.tls_g_addr) {
+    runtime_tls_g = *go_runtime_info.tls_g_addr;
+  } else if (runtime_load_g){
+    runtime_load_g();
+    // Discard the ret value R0, read R27
+    // https://github.com/golang/go/blob/go1.25.3/src/runtime/tls_arm64.s#L11-L30
+  __asm__ __volatile__("mov %0, x27" : "=r"(runtime_tls_g));
+  } else {
+    ERRORF("!go_runtime_info.tls_g_addr && !runtime_load_g");
+    return 0;
+  }
+  uint64_t g = *(uint64_t *)(tls_base + runtime_tls_g);
+  return g;
 }
 #define BP_ADJUSTMENT 8
 #elif defined(__x86_64__)
@@ -313,6 +348,8 @@ static bool handle_syscall(const char *syscall_name) {
           getpid(), exe_path, syscall_name);
 
   {
+    int image_index = 1; /* FIXME: parse */
+    intptr_t slide = _dyld_get_image_vmaddr_slide(image_index);
     void *callstack[128];
     int frames = backtrace(callstack, sizeof(callstack) / sizeof(callstack[0]));
     for (int i = 0; i < frames; ++i) {
@@ -321,7 +358,7 @@ static bool handle_syscall(const char *syscall_name) {
         DEBUGF("* %s\t%s", dli.dli_fname, dli.dli_sname);
         fprintf(json_fp, "{\"file\":\"%s\",\"symbol\":\"%s\"},", dli.dli_fname,
                 dli.dli_sname);
-        if (STR_EQ(dli.dli_sname, "runtime.asmcgocall.abi0")) {
+        if ((dli.dli_sname == NULL && runtime_load_g) || STR_EQ(dli.dli_sname, "runtime.asmcgocall.abi0")) {
           uint64_t g_addr = fetch_g();
           if (!g_addr) {
             ERRORF("!g_addr");
@@ -347,8 +384,13 @@ static bool handle_syscall(const char *syscall_name) {
               Dl_info dli2;
               if (dladdr((void *)pc, &dli2) > 0) {
                 DEBUGF("* %s\t%s", dli2.dli_fname, dli2.dli_sname);
-                fprintf(json_fp, "{\"file\":\"%s\",\"symbol\":\"%s\"},",
-                        dli2.dli_fname, dli2.dli_sname);
+                if (dli2.dli_sname == NULL) {
+                  uint64_t addr_in_image = pc - slide;
+                  fprintf(json_fp, "{\"address\":%lld},", addr_in_image);
+                } else {
+                  fprintf(json_fp, "{\"file\":\"%s\",\"symbol\":\"%s\"},",
+                          dli2.dli_fname, dli2.dli_sname);
+                }
               }
               pc = ret_addr;
               bp = saved_bp;
@@ -357,7 +399,8 @@ static bool handle_syscall(const char *syscall_name) {
         }
       } else {
         DEBUGF("* %p", callstack[i]);
-        fprintf(json_fp, "{\"address\":%lld},", (uint64_t)callstack[i]);
+        uint64_t addr_in_image = (uint64_t)callstack[i] - (uint64_t)slide;
+        fprintf(json_fp, "{\"address\":%lld},", addr_in_image);
       }
     }
   }

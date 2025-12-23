@@ -91,7 +91,6 @@ level=WARN msg=***Blocked*** syscall=pidfd_open module=github.com/AkihiroSuda/go
 - This is not a panacea; there can be other loopholes too.
 
 macOS:
-- Not applicable to a Go binary built with `-ldflags="-s"` (disable symbol table)
 - The protection can be arbitraliry disabled by unsetting an environment variable `DYLD_INSERT_LIBRARIES`.
 - Only works with the following versions of Go:
   - 1.22
@@ -100,6 +99,9 @@ macOS:
   - 1.25
 - Not applicable to a Go module that use:
   - [`syscall.Syscall`, `syscall.RawSyscall`, etc.](https://pkg.go.dev/syscall)
+
+macOS on Intel:
+- Not applicable to a Go binary built with `-ldflags="-s"` (disable symbol table)
 
 ## Advanced topics
 ### Advanced usage
