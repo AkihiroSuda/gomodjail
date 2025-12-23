@@ -97,6 +97,7 @@ macOS:
   - 1.23
   - 1.24
   - 1.25
+  - 1.26 (tested with rc1)
 - Not applicable to a Go module that use:
   - [`syscall.Syscall`, `syscall.RawSyscall`, etc.](https://pkg.go.dev/syscall)
 
