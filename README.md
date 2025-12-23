@@ -95,7 +95,7 @@ macOS:
 - Only works with the following versions of Go:
   - 1.22
   - 1.23
-  - 1.24
+  - 1.24 (excluding 1.24.0-1.24.5)
   - 1.25
   - 1.26 (tested with rc1)
 - Not applicable to a Go module that use:
