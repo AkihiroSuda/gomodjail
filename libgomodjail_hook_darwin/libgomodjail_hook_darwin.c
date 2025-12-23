@@ -73,13 +73,12 @@ static struct go_runtime_offset go_runtime_offsets[] = {
         .m_libcallpc = 872,
         .m_libcallsp = 880,
     },
-
     {
-        /* go1.24.0 */
+        /* go1.24.11 */
         .version_prefix = "go1.24",
         .g_m = 48,
-        .m_libcallpc = 856,
-        .m_libcallsp = 864,
+        .m_libcallpc = 880, // 856 in go1.24.0-go1.24.5
+        .m_libcallsp = 888, // 864 in go1.24.0-go1.24.5
     },
     {
         /* go1.23.6 */
