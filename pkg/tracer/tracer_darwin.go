@@ -51,10 +51,6 @@ func New(cmd *exec.Cmd, profile *profile.Profile) (Tracer, error) {
 	}
 	symtab := uw.Symtab()
 	// len(symtab.Syms) is zero on stripped Mach-O binaries
-	slog.Debug("symtab", "syms", symtab.Syms)
-	for _, fn := range symtab.Funcs {
-		slog.Debug("func", "name", fn.Name, "entry", fmt.Sprintf("%#x", fn.Entry))
-	}
 
 	var loadG uintptr
 	if runtime.GOARCH == "arm64" {
