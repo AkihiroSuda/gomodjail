@@ -61,7 +61,7 @@ jobs:
             go build
           fi
           # Unpacked mode
-          gomodjail run --go-mod=go.mod -- ./victim
+          DEBUG=1 gomodjail run --go-mod=go.mod -- ./victim
           # Packed mode
           gomodjail pack --go-mod=go.mod ./victim
           ./victim.gomodjail
