@@ -22,11 +22,11 @@ jobs:
           - runner: macos-15-intel  # Intel
             go: 1.25.x
             build_mode: ""
-          - runner: macos-15  # ARM
+          - runner: macos-26  # ARM
             # libgomodjail_hook_darwin is sensitive to Go version
             go: 1.24.x
             build_mode: ""
-          - runner: macos-15  # ARM
+          - runner: macos-26  # ARM
             go: 1.25.x
             build_mode: ""
     runs-on: ${{ matrix.runner }}
