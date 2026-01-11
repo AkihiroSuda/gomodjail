@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/analyze"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/pack"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/run"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
@@ -50,18 +51,26 @@ func xmain() int {
 			}
 		}
 	}
+	ctx := rootCmd.Context()
 	err := rootCmd.Execute()
 	if err != nil {
 		exitCode := 1
+		var errIsExitErr bool
 		if exitErr, ok := err.(*exec.ExitError); ok {
+			errIsExitErr = true
 			if ps := exitErr.ProcessState; ps != nil {
 				exitCode = ps.ExitCode()
 			}
 		} else if exitErr, ok := err.(*tracer.ExitError); ok {
+			errIsExitErr = true
 			exitCode = exitErr.ExitCode
 		}
 		if exitCode != 0 {
-			slog.Debug("exiting with an error", "error", err, "exitCode", exitCode)
+			logLevel := slog.LevelError
+			if errIsExitErr {
+				logLevel = slog.LevelDebug // too verbose for `gomodjail run` target program errors
+			}
+			slog.Log(ctx, logLevel, "exiting with an error", "error", err, "exitCode", exitCode)
 		} else {
 			slog.Debug("exiting")
 		}
@@ -97,6 +106,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(
 		run.New(),
 		pack.New(),
+		analyze.New(),
 	)
 	return cmd
 }
