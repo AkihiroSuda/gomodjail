@@ -77,13 +77,7 @@ level=WARN msg=***Blocked*** syscall=pidfd_open module=github.com/AkihiroSuda/go
 
 ## Caveats
 - Not applicable to a Go binary built by non-trustworthy thirdparty, as the symbol information might be faked.
-- Not applicable to a Go module that use:
-  - [`unsafe`](https://pkg.go.dev/unsafe)
-  - [`reflect`](https://pkg.go.dev/reflect)
-  - [`plugin`](https://pkg.go.dev/plugin)
-  - [`go:linkname`](https://tip.golang.org/doc/go1.23#linker)
-  - [C](https://pkg.go.dev/cmd/cgo)
-  - [Assembly](https://go.dev/doc/asm)
+- Not applicable to a Go module that imports `unsafe`, `reflect`, `plugin`, etc. See [Static analysis](#static-analysis).
 - No isolation of file descriptors across modules.
   A confined module can still read/write an existing file descriptor, although it cannot open a new file descriptor.
 - The target binary file must not be replaced during execution.
@@ -105,9 +99,28 @@ macOS on Intel:
 - Not applicable to a Go binary built with `-ldflags="-s"` (disable symbol table)
 
 ## Advanced topics
-### Advanced usage
-- To create a self-extract archive of gomodjail with a target program, run `gomodjail pack --go-mod=go.mod PROGRAM`.
-  The self-extract archive is created as `<PROGRAM>.gomodjail`.
+### Self-extract archive
+To create a self-extract archive of gomodjail with a target program, run `gomodjail pack --go-mod=go.mod PROGRAM`.
+The self-extract archive is created as `<PROGRAM>.gomodjail`.
+
+### Static analysis
+
+The `gomodjail analyze` command can analyze if a module imports "unsafe" codes that cannot be protected with gomodjail, such as:
+  - [`unsafe`](https://pkg.go.dev/unsafe)
+  - [`reflect`](https://pkg.go.dev/reflect)
+  - [`plugin`](https://pkg.go.dev/plugin)
+  - [`go:linkname`](https://tip.golang.org/doc/go1.23#linker)
+  - [C](https://pkg.go.dev/cmd/cgo)
+  - [Assembly](https://go.dev/doc/asm)
+
+```console
+$ gomodjail analyze ./...
+/Users/suda/gopath/pkg/mod/golang.org/x/sys@v0.39.0/cpu/runtime_auxv_go121.go:10:2: unsafe or cgo-related package imported: "unsafe"
+/Users/suda/gopath/pkg/mod/golang.org/x/sys@v0.39.0/cpu/runtime_auxv_go121.go:13:1: use of //go:linkname directive detected
+/Users/suda/gopath/pkg/mod/golang.org/x/sys@v0.39.0/execabs/execabs.go:21:2: unsafe or cgo-related package imported: "reflect"
+/Users/suda/gopath/pkg/mod/golang.org/x/sys@v0.39.0/execabs/execabs.go:22:2: unsafe or cgo-related package imported: "unsafe"
+[...]
+```
 
 ### How it works
 Linux:

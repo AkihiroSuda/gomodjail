@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/analyze"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/pack"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/run"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
@@ -105,6 +106,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(
 		run.New(),
 		pack.New(),
+		analyze.New(),
 	)
 	return cmd
 }
