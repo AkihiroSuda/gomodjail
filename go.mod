@@ -7,7 +7,7 @@ require (
 	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/mod v0.32.0
-	golang.org/x/sys v0.40.0
+	golang.org/x/sys v0.41.0
 	golang.org/x/tools v0.40.0
 	gotest.tools/v3 v3.5.2
 )
