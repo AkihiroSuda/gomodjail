@@ -14,7 +14,7 @@ import (
 
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile/fromgomod"
-	"github.com/AkihiroSuda/gomodjail/pkg/staticanalysis/analyzer"
+	"github.com/AkihiroSuda/gomodjail/pkg/static/analyzer"
 )
 
 func New() *cobra.Command {

@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/child"
-	"github.com/AkihiroSuda/gomodjail/pkg/env"
-	"github.com/AkihiroSuda/gomodjail/pkg/parent"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/child"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/parent"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile/fromgomod"
 	"github.com/spf13/cobra"
