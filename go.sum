@@ -1,5 +1,5 @@
-github.com/AkihiroSuda/gosocialcheck v0.0.2 h1:2l7SoAqerUGlg002WPmDotmsZcB5B9Em/9a54OIez2E=
-github.com/AkihiroSuda/gosocialcheck v0.0.2/go.mod h1:EaSG+yULEuBccZtQ0ay3hK1p0i0xKp1HO5LNca6aRxs=
+github.com/AkihiroSuda/gosocialcheck v0.0.4 h1:DSeLoaG7jgjbscgFfyRzdLQprpTnomVxJF7pRAdjRnw=
+github.com/AkihiroSuda/gosocialcheck v0.0.4/go.mod h1:DNDBTlEkGah2wiGC50XNFPETBNiN1o2c15w9ziECOtM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

@@ -3,7 +3,7 @@ module github.com/AkihiroSuda/gomodjail
 go 1.24.0
 
 require (
-	github.com/AkihiroSuda/gosocialcheck v0.0.2
+	github.com/AkihiroSuda/gosocialcheck v0.0.4
 	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/mod v0.33.0
