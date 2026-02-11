@@ -10,10 +10,10 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/procutil"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/procutil"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/tracer/regs"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/unwinder"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
-	"github.com/AkihiroSuda/gomodjail/pkg/tracer/regs"
-	"github.com/AkihiroSuda/gomodjail/pkg/unwinder"
 	"github.com/elastic/go-seccomp-bpf/arch"
 	"golang.org/x/sys/unix"
 )

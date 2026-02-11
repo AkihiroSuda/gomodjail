@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/env"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
 )
 
 func ExecutableDir() (string, error) {

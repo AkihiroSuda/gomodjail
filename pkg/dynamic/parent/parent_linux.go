@@ -4,8 +4,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/env"
-	"github.com/AkihiroSuda/gomodjail/pkg/osargs"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/osargs"
 )
 
 func createCmd(_ []string) (*exec.Cmd, error) {

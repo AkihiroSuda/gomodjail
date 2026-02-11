@@ -3,8 +3,8 @@ package parent
 import (
 	"io"
 
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/tracer"
 	"github.com/AkihiroSuda/gomodjail/pkg/profile"
-	"github.com/AkihiroSuda/gomodjail/pkg/tracer"
 )
 
 func Main(profile *profile.Profile, args []string) error {

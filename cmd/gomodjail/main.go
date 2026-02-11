@@ -14,12 +14,12 @@ import (
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/pack"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/run"
 	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
-	"github.com/AkihiroSuda/gomodjail/pkg/cache"
-	"github.com/AkihiroSuda/gomodjail/pkg/env"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/cache"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/osargs"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/ziputil"
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/tracer"
 	"github.com/AkihiroSuda/gomodjail/pkg/envutil"
-	"github.com/AkihiroSuda/gomodjail/pkg/osargs"
-	"github.com/AkihiroSuda/gomodjail/pkg/tracer"
-	"github.com/AkihiroSuda/gomodjail/pkg/ziputil"
 	"github.com/spf13/cobra"
 )
 
