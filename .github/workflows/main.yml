@@ -14,26 +14,23 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04  # Intel
-            go: 1.25.x
+            go: 1.26.x
             build_mode: ""
           - runner: ubuntu-24.04  # Intel
-            go: 1.25.x
+            go: 1.26.x
             build_mode: "strip"
           - runner: macos-15-intel  # Intel
-            go: 1.25.x
+            go: 1.26.x
             build_mode: ""
           - runner: macos-26  # ARM
             # libgomodjail_hook_darwin is sensitive to Go version
-            go: 1.24.x
-            build_mode: ""
-          - runner: macos-26  # ARM
             go: 1.25.x
             build_mode: ""
           - runner: macos-26  # ARM
-            go: 1.26.0-rc.1
+            go: 1.26.x
             build_mode: ""
           - runner: macos-26  # ARM
-            go: 1.25.x
+            go: 1.26.x
             build_mode: "strip"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
