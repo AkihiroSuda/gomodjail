@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"syscall"
 
+	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/child/seccompprofile"
 	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
-	"github.com/AkihiroSuda/gomodjail/pkg/profile/seccompprofile"
 	seccomp "github.com/elastic/go-seccomp-bpf"
 	"github.com/elastic/go-seccomp-bpf/arch"
 )
