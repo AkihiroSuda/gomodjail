@@ -74,9 +74,18 @@ require (
 	example.com/mod202 v1.2.3 // indirect
 )
 
-// policy cannot be specified here because the parser ignores
-// the comment lines here
+//gomodjail:unconfined
 require (
+	example.com/mod300 v1.2.3
+	example.com/mod301 v1.2.3 // gomodjail:confined
+	example.com/mod302 v1.2.3
+)
+
+// gomodjail:confined
+require (
+	example.com/mod400 v1.2.3 // indirect
+	example.com/mod401 v1.2.3 // indirect // gomodjail:unconfined
+	example.com/mod402 v1.2.3 // indirect
 )
 `,
 			expected: map[string]string{
@@ -84,6 +93,23 @@ require (
 				"example.com/mod102": "confined",
 				"example.com/mod201": "confined",
 				"example.com/mod202": "confined",
+				"example.com/mod301": "confined",
+				"example.com/mod400": "confined",
+				"example.com/mod402": "confined",
+			},
+		},
+
+		{
+			name: "blockless",
+			goMod: `
+module example.com/foo
+
+go 1.23
+
+require example.com/mod v1.2.3 // gomodjail:confined
+`,
+			expected: map[string]string{
+				"example.com/mod": "confined",
 			},
 		},
 	}
