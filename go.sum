@@ -1,3 +1,5 @@
+github.com/AkihiroSuda/gomoddirectivecomments v0.1.0 h1:5sKxYIkq9GGs0DTnuPNVm2Z/LmhKdTN+8QblThzTKqg=
+github.com/AkihiroSuda/gomoddirectivecomments v0.1.0/go.mod h1:flXOhVLWfsi4FuFhFoc9F3m7wAH2RT4aM3fVyQROKt4=
 github.com/AkihiroSuda/gosocialcheck v0.0.4 h1:DSeLoaG7jgjbscgFfyRzdLQprpTnomVxJF7pRAdjRnw=
 github.com/AkihiroSuda/gosocialcheck v0.0.4/go.mod h1:DNDBTlEkGah2wiGC50XNFPETBNiN1o2c15w9ziECOtM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
