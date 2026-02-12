@@ -40,6 +40,19 @@ func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
 	for _, f := range mod.Require {
 		if syn := f.Syntax; syn != nil {
 			pol := currentDefaultPolicy
+			if syn.InBlock {
+				// TODO: cache line blocks
+				if lineBlock := findLineBlock(mod.Syntax.Stmt, syn); lineBlock != nil {
+					lineBlockPol, err := policyFromLineBlock(lineBlock)
+					if err != nil {
+						err = fmt.Errorf("failed to parse line block %+v: %w", lineBlock, err)
+						return err
+					}
+					if lineBlockPol != "" {
+						pol = lineBlockPol
+					}
+				}
+			}
 			for _, c := range append(syn.Before, syn.Suffix...) {
 				if tok := c.Token; tok != "" {
 					polFromComment, err := policyFromComment(tok)
@@ -82,6 +95,36 @@ func policyFromComment(token string) (string, error) {
 				return pol, fmt.Errorf("unknown policy %q", pol)
 			}
 			return pol, nil
+		}
+	}
+	return "", nil
+}
+
+func findLineBlock(exprs []modfile.Expr, line modfile.Expr) *modfile.LineBlock {
+	start, end := line.Span()
+	for _, expr := range exprs {
+		lb, ok := expr.(*modfile.LineBlock)
+		if !ok {
+			continue
+		}
+		lbStart, lbEnd := lb.Span()
+		if start.Line >= lbStart.Line && end.Line <= lbEnd.Line {
+			return lb
+		}
+	}
+	return nil
+}
+
+func policyFromLineBlock(lb *modfile.LineBlock) (string, error) {
+	for _, c := range append(lb.Before, lb.Suffix...) {
+		if tok := c.Token; tok != "" {
+			pol, err := policyFromComment(tok)
+			if err != nil {
+				return "", err
+			}
+			if pol != "" {
+				return pol, nil
+			}
 		}
 	}
 	return "", nil
