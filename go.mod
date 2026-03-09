@@ -1,6 +1,6 @@
 module github.com/AkihiroSuda/gomodjail
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/AkihiroSuda/gomoddirectivecomments v0.1.0
@@ -8,7 +8,7 @@ require (
 	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/mod v0.33.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/sys v0.42.0
 	golang.org/x/tools v0.42.0
 	gotest.tools/v3 v3.5.2
 )
