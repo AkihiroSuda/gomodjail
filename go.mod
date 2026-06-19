@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/AkihiroSuda/gomoddirectivecomments v0.1.0
-	github.com/AkihiroSuda/gosocialcheck v0.0.4
+	github.com/AkihiroSuda/gosocialcheck v0.1.3
 	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/mod v0.37.0
