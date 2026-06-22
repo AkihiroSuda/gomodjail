@@ -14,8 +14,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/unwinder"
-	"github.com/AkihiroSuda/gomodjail/pkg/profile"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/unwinder"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
 )
 
 func LibgomodjailHook() (string, error) {
