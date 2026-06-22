@@ -12,9 +12,9 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/analysis/singlechecker"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/profile"
-	"github.com/AkihiroSuda/gomodjail/pkg/profile/fromgomod"
-	"github.com/AkihiroSuda/gomodjail/pkg/static/analyzer"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile/fromgomod"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/static/analyzer"
 )
 
 func New() *cobra.Command {

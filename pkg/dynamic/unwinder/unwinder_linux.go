@@ -6,7 +6,7 @@ package unwinder
 import (
 	"debug/elf"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/procutil"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/procutil"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/ziputil"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/tracer"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/pack/ziputil"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/tracer"
 	"github.com/spf13/cobra"
 )
 
