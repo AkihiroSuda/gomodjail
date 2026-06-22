@@ -12,25 +12,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04  # Intel
-            go: 1.26.x
-            build_mode: ""
-          - runner: ubuntu-24.04  # Intel
-            go: 1.26.x
-            build_mode: "strip"
-          - runner: macos-15-intel  # Intel
-            go: 1.26.x
-            build_mode: ""
-          - runner: macos-26  # ARM
-            # libgomodjail_hook_darwin is sensitive to Go version
-            go: 1.25.x
-            build_mode: ""
-          - runner: macos-26  # ARM
-            go: 1.26.x
-            build_mode: ""
-          - runner: macos-26  # ARM
-            go: 1.26.x
+        runner: [ubuntu-24.04, macos-15-intel, macos-26]
+        # libgomodjail_hook_darwin is sensitive to Go version
+        go: [1.25.x, 1.26.x, 1.27.0-rc.1]
+        build_mode: ["", "strip"]
+        exclude:
+          - runner: macos-15-intel
             build_mode: "strip"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
@@ -48,6 +35,7 @@ jobs:
         run: go test -v ./...
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
+        if: ${{ !contains(matrix.go, 'rc') }}
       - name: Smoke test
         timeout-minutes: 5
         env:
