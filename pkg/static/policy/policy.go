@@ -60,6 +60,29 @@ type Policy struct {
 	Allowed map[string]struct{}
 }
 
+// EscapeHatchCapabilities are the capability classes that defeat sound static
+// analysis: each can manufacture a call the call graph cannot see — cgo and
+// assembly, unsafe.Pointer arithmetic, reflective dispatch, //go:linkname
+// targets, arbitrary execution, or a path Capslock gave up following
+// (UNANALYZED). A confined module that reaches any of them cannot be vouched
+// for, so they are denied unconditionally: even a capability-scoped policy that
+// permits other classes can never permit these (design §5.3, "unanalyzable ⇒
+// fail").
+var EscapeHatchCapabilities = map[string]struct{}{
+	CapCGO:                {},
+	CapUnsafePointer:      {},
+	CapReflect:            {},
+	CapArbitraryExecution: {},
+	CapUnanalyzed:         {},
+}
+
+// IsEscapeHatch reports whether reaching the capability class makes a confined
+// module unanalyzable, and therefore an unconditional lint failure.
+func IsEscapeHatch(capability string) bool {
+	_, ok := EscapeHatchCapabilities[capability]
+	return ok
+}
+
 // Strict returns the default policy: deny every capability class. This is the
 // meaning of a bare "// gomodjail:confined" annotation. Capability-scoped
 // relaxations (e.g. confined=fs-read) are deferred to a later milestone.
@@ -83,6 +106,9 @@ func Allowing(caps ...string) *Policy {
 func (pol *Policy) Denies(capability string) bool {
 	if capability == "" || capability == CapSafe {
 		return false
+	}
+	if IsEscapeHatch(capability) {
+		return true
 	}
 	_, ok := pol.Allowed[capability]
 	return !ok
