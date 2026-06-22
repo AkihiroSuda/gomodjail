@@ -3,7 +3,7 @@ package fromgomod
 import (
 	"testing"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/profile"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
 	"golang.org/x/mod/modfile"
 	"gotest.tools/v3/assert"
 )

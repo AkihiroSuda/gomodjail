@@ -3,7 +3,7 @@ PREFIX ?= /usr/local
 DEST := $(shell echo "$(DESTDIR)/$(PREFIX)" | sed 's:///*:/:g; s://*$$::')
 
 VERSION ?=$(shell git describe --match 'v[0-9]*' --dirty='.m' --always --tags)
-VERSION_SYMBOL := github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version.Version
+VERSION_SYMBOL := github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/version.Version
 
 export SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct)
 SOURCE_DATE_EPOCH_TOUCH := $(shell date -r $(SOURCE_DATE_EPOCH) +%Y%m%d%H%M.%S)

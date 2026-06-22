@@ -8,7 +8,7 @@ import (
 	"github.com/AkihiroSuda/gomoddirectivecomments"
 	"golang.org/x/mod/modfile"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/profile"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
 )
 
 func FromGoMod(mod *modfile.File, prof *profile.Profile) error {
