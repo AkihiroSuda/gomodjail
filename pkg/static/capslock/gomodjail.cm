@@ -1,0 +1,58 @@
+# gomodjail's overrides to Capslock's builtin capability map
+# (github.com/google/capslock/interesting/interesting.cm).
+#
+# Loaded via interesting.LoadClassifier, so entries here override the builtin
+# classification for the same symbol; everything else keeps Capslock's
+# curated defaults. Treat any change to this file as a security-reviewed
+# event: reclassifying a symbol as SAFE removes it from the sink set.
+#
+# Rationale: dynamic-mode parity for already-open file handles.
+#
+# gomodjail's dynamic mode enforced confinement at the syscall boundary, and
+# for performance its seccomp filter always allowed FD-based I/O on handles
+# the process already holds: read, write, pread64/pwrite64, readv/writev,
+# lseek, close, fsync (pkg/dynamic/child/seccompprofile.AlwaysAllowed). The
+# enforced capability boundary was OBTAINING a file: openat, unlink, mkdir...
+#
+# Capslock instead classifies (*os.File) methods themselves as FILES, so any
+# module that writes to a caller-supplied io.Writer, or logs to stderr
+# (log.Printf -> (*log.Logger).output -> (*os.File).Write), earns FILES even
+# though it can never open anything. That fails essentially every library
+# that logs. Reclassifying the FD-I/O methods as SAFE restores the dynamic
+# boundary: os.Open / os.Create / os.OpenFile / os.ReadFile / os.Remove and
+# friends keep their builtin FILES classification and remain violations.
+#
+# (*os.File).Name and .Fd do not even perform a syscall (they return fields).
+# (*os.File).Stat is fstat(2) on an open FD, also in AlwaysAllowed.
+# Directory listing (ReadDir etc.) and FD-based metadata mutation (Chmod,
+# Chown, Truncate...) are deliberately NOT reclassified: the practical gain
+# is nil and they reveal or mutate filesystem state.
+
+# errors.Is on an error chain is resolved by VTA to every Is method of every
+# error type in the module's dependency cone. net/http's unexported
+# timeoutError.Is is a pure one-line comparison, but it inherits the whole
+# package's NETWORK classification, tainting any module that combines
+# errors.Is with a net/http import (e.g. gRPC/HTTP status mapping helpers).
+func (*net/http.timeoutError).Is CAPABILITY_SAFE
+
+# Same pattern: net/http.eofReader is a trivial always-EOF reader, but any
+# io.Reader/io.ByteReader dispatch that VTA resolves to it (e.g. inside
+# compress/gzip) earns NETWORK from the package classification.
+func (net/http.eofReader).Read CAPABILITY_SAFE
+func (net/http.eofReader).ReadByte CAPABILITY_SAFE
+func (net/http.http2eofReader).Read CAPABILITY_SAFE
+func (net/http.http2eofReader).ReadByte CAPABILITY_SAFE
+
+func (*os.File).Read CAPABILITY_SAFE
+func (*os.File).ReadAt CAPABILITY_SAFE
+func (*os.File).ReadFrom CAPABILITY_SAFE
+func (*os.File).Write CAPABILITY_SAFE
+func (*os.File).WriteAt CAPABILITY_SAFE
+func (*os.File).WriteString CAPABILITY_SAFE
+func (*os.File).WriteTo CAPABILITY_SAFE
+func (*os.File).Seek CAPABILITY_SAFE
+func (*os.File).Close CAPABILITY_SAFE
+func (*os.File).Sync CAPABILITY_SAFE
+func (*os.File).Stat CAPABILITY_SAFE
+func (*os.File).Name CAPABILITY_SAFE
+func (*os.File).Fd CAPABILITY_SAFE
