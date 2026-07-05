@@ -58,6 +58,14 @@ const (
 	CapRuntime            = "RUNTIME"
 	CapReadSystemState    = "READ_SYSTEM_STATE"
 	CapModifySystemState  = "MODIFY_SYSTEM_STATE"
+
+	// Refined FILES classes introduced by gomodjail's classifier overrides
+	// (pkg/static/capslock/gomodjail.cm): path-based reads vs filesystem
+	// mutation. Both inherit FILES' Deny tier via the hierarchical fallback;
+	// they exist so witnesses name what the module actually does, and so a
+	// future per-capability policy can allow one without the other.
+	CapFilesRead  = "FILES/READ"
+	CapFilesWrite = "FILES/WRITE"
 )
 
 // Severity is the tier a capability class falls into for a confined module.

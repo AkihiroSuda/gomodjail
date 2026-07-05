@@ -162,12 +162,9 @@ func Analyze(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("%d error(s) while loading packages %v", n, patterns)
 	}
 
-	// Capslock's curated capability map plus gomodjail's pinned overrides.
-	// The UNANALYZED class is kept (not excluded), so gomodjail's policy
-	// layer can surface unfollowable paths as analysis caveats.
-	classifier, err := interesting.LoadClassifier("gomodjail.cm", strings.NewReader(overridesCM), false)
+	classifier, err := loadClassifier()
 	if err != nil {
-		return nil, fmt.Errorf("loading gomodjail classifier overrides: %w", err)
+		return nil, err
 	}
 	cfg := &analyzer.Config{
 		Classifier: classifier,
@@ -203,6 +200,18 @@ func Analyze(opts Options) (*Result, error) {
 	}
 	sortFindings(res.Findings)
 	return res, nil
+}
+
+// loadClassifier returns Capslock's curated capability map with gomodjail's
+// pinned overrides merged on top. The UNANALYZED class is kept (not
+// excluded), so gomodjail's policy layer can surface unfollowable paths as
+// analysis caveats.
+func loadClassifier() (*interesting.Classifier, error) {
+	classifier, err := interesting.LoadClassifier("gomodjail.cm", strings.NewReader(overridesCM), false)
+	if err != nil {
+		return nil, fmt.Errorf("loading gomodjail classifier overrides: %w", err)
+	}
+	return classifier, nil
 }
 
 // collectConfinedPackages walks the whole loaded program (including
