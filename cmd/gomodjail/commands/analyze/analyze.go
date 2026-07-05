@@ -63,7 +63,7 @@ func New() *cobra.Command {
 	flags.StringToString("policy", nil, "e.g., example.com/module=confined (overrides go.mod)")
 	flags.Bool("strict", false, "treat warnings (reflect, unsafe, unanalyzable paths) as violations")
 	flags.Bool("explain", false, "print witness call paths for warnings, not just violations")
-	flags.String("format", "text", "output format (text|json)")
+	flags.String("format", "text", "output format (text|json|sarif)")
 	flags.String("goos", "", "GOOS to analyze (default: host)")
 	flags.String("goarch", "", "GOARCH to analyze (default: host)")
 	flags.Int("parallel", 0, "maximum number of modules analyzed concurrently (0: number of CPUs; memory use grows with this)")
@@ -74,7 +74,7 @@ func action(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	flags := cmd.Flags()
 
-	prof, goModBytes, err := loadProfile(flags)
+	prof, src, goModBytes, err := loadProfile(flags)
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,12 @@ func action(cmd *cobra.Command, args []string) error {
 		if err := reportJSON(w, reports, strict, md); err != nil {
 			return err
 		}
+	case "sarif":
+		if err := reportSARIF(w, reports, src, strict); err != nil {
+			return err
+		}
 	default:
-		return fmt.Errorf("unknown format %q (expected text|json)", format)
+		return fmt.Errorf("unknown format %q (expected text|json|sarif)", format)
 	}
 
 	s := summarize(reports)
@@ -156,34 +160,51 @@ func action(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// profileSource records where the policy came from, for output formats that
+// point back at it (SARIF anchors each finding to the confined module's
+// require line in go.mod — the line whose annotation a reviewer would edit).
+type profileSource struct {
+	// GoMod is the --go-mod path, "" when the policy came from --policy only.
+	GoMod string
+	// ModuleLine maps a module path to its require line in GoMod.
+	ModuleLine map[string]int
+}
+
 // loadProfile builds the policy from --go-mod (when set) and applies --policy
 // overrides, mirroring the `run` command so the two stay interchangeable.
 // loadProfile also returns the raw go.mod contents the profile was built
 // from (nil for policy-only runs), so the JSON report can be bound to the
 // exact bytes that were analyzed.
-func loadProfile(flags *pflag.FlagSet) (*profile.Profile, []byte, error) {
+func loadProfile(flags *pflag.FlagSet) (*profile.Profile, *profileSource, []byte, error) {
 	prof := profile.New()
+	src := &profileSource{ModuleLine: make(map[string]int)}
 	goMod, err := flags.GetString("go-mod")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var goModBytes []byte
 	if goMod != "" {
 		goModBytes, err = os.ReadFile(goMod)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		mf, err := modfile.Parse(goMod, goModBytes, nil)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if err = fromgomod.FromGoMod(mf, prof); err != nil {
-			return nil, nil, fmt.Errorf("failed to read profile from %q: %w", goMod, err)
+			return nil, nil, nil, fmt.Errorf("failed to read profile from %q: %w", goMod, err)
+		}
+		src.GoMod = goMod
+		for _, req := range mf.Require {
+			if req.Syntax != nil {
+				src.ModuleLine[req.Mod.Path] = req.Syntax.Start.Line
+			}
 		}
 	}
 	overrides, err := flags.GetStringToString("policy")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for k, v := range overrides {
 		if old, ok := prof.Modules[k]; ok && old != v {
@@ -191,7 +212,7 @@ func loadProfile(flags *pflag.FlagSet) (*profile.Profile, []byte, error) {
 		}
 		prof.Modules[k] = v
 	}
-	return prof, goModBytes, nil
+	return prof, src, goModBytes, nil
 }
 
 func confinedModules(prof *profile.Profile) []string {
