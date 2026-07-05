@@ -51,6 +51,10 @@ func TestSeverityHierarchicalNames(t *testing.T) {
 	assert.Equal(t, pol.Severity("MODIFY_SYSTEM_STATE/SIGNALS"), policy.SeverityDeny)
 	assert.Equal(t, pol.Severity("MODIFY_SYSTEM_STATE/ENV"), policy.SeverityDeny)
 	assert.Equal(t, pol.Severity("SOME_FUTURE/THING"), policy.SeverityDeny)
+	// The FILES read/write split from gomodjail's classifier overrides:
+	// refined names, same Deny tier as their parent by default.
+	assert.Equal(t, pol.Severity(policy.CapFilesRead), policy.SeverityDeny)
+	assert.Equal(t, pol.Severity(policy.CapFilesWrite), policy.SeverityDeny)
 }
 
 // TestSeverityFailClosed: a capability class this package does not know (e.g.
