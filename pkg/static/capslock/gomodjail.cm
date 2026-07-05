@@ -1,0 +1,184 @@
+# gomodjail's overrides to Capslock's builtin capability map
+# (github.com/google/capslock/interesting/interesting.cm).
+#
+# Loaded via interesting.LoadClassifier, so entries here override the builtin
+# classification for the same symbol; everything else keeps Capslock's
+# curated defaults. Treat any change to this file as a security-reviewed
+# event: reclassifying a symbol as SAFE removes it from the sink set.
+#
+# The boundary this file draws, in one sentence: OBTAINING access to a new
+# filesystem object via a path is a capability (denied); OPERATING on a
+# handle the module already holds is not (the host granted that capability
+# when it handed over the handle).
+#
+# That matches gomodjail's dynamic mode, which enforced confinement at the
+# syscall boundary: its seccomp filter always allowed FD-based I/O on handles
+# the process already holds (read, write, pread64/pwrite64, readv/writev,
+# lseek, close, fsync, pipe — pkg/dynamic/child/seccompprofile.AlwaysAllowed)
+# and traced/blocked the path-based syscalls that mint new access (openat,
+# unlink, mkdir, rename, chmod, ...).
+#
+# Capslock instead classifies (*os.File) methods themselves as FILES, so any
+# module that writes to a caller-supplied io.Writer, or logs to stderr
+# (log.Printf -> (*log.Logger).output -> (*os.File).Write), earns FILES even
+# though it can never open anything. That fails essentially every library
+# that logs. Reclassifying the FD-I/O methods as SAFE restores the dynamic
+# boundary.
+#
+# (Dynamic's AlwaysAllowed list also contained lstat and access, for Go
+# runtime noise. That was a pragmatic hole, not a granted capability:
+# path-based metadata reads probe filesystem state the host never handed
+# over, so os.Lstat and friends stay denied here — see FILES/READ below.)
+
+# errors.Is on an error chain is resolved by VTA to every Is method of every
+# error type in the module's dependency cone. net/http's unexported
+# timeoutError.Is is a pure one-line comparison, but it inherits the whole
+# package's NETWORK classification, tainting any module that combines
+# errors.Is with a net/http import (e.g. gRPC/HTTP status mapping helpers).
+func (*net/http.timeoutError).Is CAPABILITY_SAFE
+
+# Same pattern: net/http.eofReader is a trivial always-EOF reader, but any
+# io.Reader/io.ByteReader dispatch that VTA resolves to it (e.g. inside
+# compress/gzip) earns NETWORK from the package classification.
+func (net/http.eofReader).Read CAPABILITY_SAFE
+func (net/http.eofReader).ReadByte CAPABILITY_SAFE
+func (net/http.http2eofReader).Read CAPABILITY_SAFE
+func (net/http.http2eofReader).ReadByte CAPABILITY_SAFE
+
+# ---------------------------------------------------------------------------
+# I/O on handles the module already holds: SAFE (dynamic-mode parity).
+# (*os.File).Name and .Fd do not even perform a syscall (they return fields);
+# SyscallConn likewise only exposes the descriptor it already has, and the
+# Set*Deadline methods talk to the runtime poller. (*os.File).Stat is
+# fstat(2) on an open FD, also in AlwaysAllowed.
+func (*os.File).Read CAPABILITY_SAFE
+func (*os.File).ReadAt CAPABILITY_SAFE
+func (*os.File).ReadFrom CAPABILITY_SAFE
+func (*os.File).Write CAPABILITY_SAFE
+func (*os.File).WriteAt CAPABILITY_SAFE
+func (*os.File).WriteString CAPABILITY_SAFE
+func (*os.File).WriteTo CAPABILITY_SAFE
+func (*os.File).Seek CAPABILITY_SAFE
+func (*os.File).Close CAPABILITY_SAFE
+func (*os.File).Sync CAPABILITY_SAFE
+func (*os.File).Stat CAPABILITY_SAFE
+func (*os.File).Name CAPABILITY_SAFE
+func (*os.File).Fd CAPABILITY_SAFE
+func (*os.File).SyscallConn CAPABILITY_SAFE
+func (*os.File).SetDeadline CAPABILITY_SAFE
+func (*os.File).SetReadDeadline CAPABILITY_SAFE
+func (*os.File).SetWriteDeadline CAPABILITY_SAFE
+
+# Pure accessors on values obtained from an earlier (already-classified)
+# call: an os.FileInfo returned by Stat, a DirEntry returned by ReadDir.
+# They read struct fields; no syscall is performed. Without this, a module
+# calling IsDir() on a caller-supplied os.FileInfo earns FILES (seen in the
+# field test: yamlfmt's shortest FILES witness was (*os.fileStat).IsDir,
+# hiding the module's real filesystem use behind a benign frame).
+func (*os.fileStat).IsDir CAPABILITY_SAFE
+func (*os.fileStat).ModTime CAPABILITY_SAFE
+func (*os.fileStat).Mode CAPABILITY_SAFE
+func (*os.fileStat).Name CAPABILITY_SAFE
+func (*os.fileStat).Size CAPABILITY_SAFE
+func (*os.fileStat).Sys CAPABILITY_SAFE
+func (*os.unixDirent).IsDir CAPABILITY_SAFE
+func (*os.unixDirent).Name CAPABILITY_SAFE
+func (*os.unixDirent).Type CAPABILITY_SAFE
+func os.SameFile CAPABILITY_SAFE
+# os.NewFile wraps a descriptor the caller already owns; os.Pipe creates an
+# anonymous in-process pipe (pipe(2) is in AlwaysAllowed) — neither touches
+# a filesystem path. (*os.Root).Name/FS return fields/wrappers; Close is
+# close(2) on an open FD.
+func os.NewFile CAPABILITY_SAFE
+func os.Pipe CAPABILITY_SAFE
+func (*os.Root).Name CAPABILITY_SAFE
+func (*os.Root).FS CAPABILITY_SAFE
+func (*os.Root).Close CAPABILITY_SAFE
+
+# ---------------------------------------------------------------------------
+# The FILES read/write split (design v2 §5.1 / M4). Every remaining
+# os-package FILES sink is refined to FILES/READ (obtains read access to a
+# filesystem object by path, or reads fs metadata/state) or FILES/WRITE
+# (creates, opens for writing, or mutates filesystem state). Both inherit
+# FILES' Deny tier by default — the split changes what a witness NAMES, not
+# what the default gate blocks — and gives per-capability policy
+# configuration (e.g. allowing FILES/READ for a config-loading module) a
+# stable vocabulary to hang off later.
+#
+# os.OpenFile can open read-only, but its mode is data, not code: statically
+# it must be assumed writable, so it is FILES/WRITE. Directory listing
+# ((*os.File).ReadDir etc.) is FILES/READ even though it operates on an open
+# FD: it enumerates names the host never handed over.
+
+# Path-based reads.
+func os.Open FILES/READ
+func os.OpenInRoot FILES/READ
+func os.OpenRoot FILES/READ
+func os.DirFS FILES/READ
+func os.ReadDir FILES/READ
+func os.ReadFile FILES/READ
+func os.Stat FILES/READ
+func os.Lstat FILES/READ
+func os.Readlink FILES/READ
+func (*os.File).ReadDir FILES/READ
+func (*os.File).Readdir FILES/READ
+func (*os.File).Readdirnames FILES/READ
+func (*os.Root).Open FILES/READ
+func (*os.Root).OpenRoot FILES/READ
+func (*os.Root).Lstat FILES/READ
+func (*os.Root).Readlink FILES/READ
+func (*os.Root).ReadFile FILES/READ
+func (*os.Root).Stat FILES/READ
+func (os.dirFS).Open FILES/READ
+func (os.dirFS).ReadDir FILES/READ
+func (os.dirFS).ReadFile FILES/READ
+func (os.dirFS).Stat FILES/READ
+# DirEntry.Info falls back to lstat(2) on the entry's path.
+func (*os.unixDirent).Info FILES/READ
+# LookPath stats candidate paths across $PATH.
+func os/exec.LookPath FILES/READ
+
+# Path-based writes and filesystem mutation.
+func os.Chmod FILES/WRITE
+func os.Chown FILES/WRITE
+func os.Chtimes FILES/WRITE
+func os.CopyFS FILES/WRITE
+func os.CopyFS$1 FILES/WRITE
+func os.Create FILES/WRITE
+func os.CreateTemp FILES/WRITE
+func os.Lchown FILES/WRITE
+func os.Link FILES/WRITE
+func os.Mkdir FILES/WRITE
+func os.MkdirAll FILES/WRITE
+func os.MkdirTemp FILES/WRITE
+func os.OpenFile FILES/WRITE
+func os.Remove FILES/WRITE
+func os.RemoveAll FILES/WRITE
+func os.Rename FILES/WRITE
+func os.Symlink FILES/WRITE
+func os.Truncate FILES/WRITE
+func os.WriteFile FILES/WRITE
+# FD-based metadata mutation is deliberately NOT SAFE: unlike read/write on
+# an open FD, chmod/chown/truncate change filesystem state visible to
+# everyone, which dynamic mode also traced.
+func (*os.File).Chmod FILES/WRITE
+func (*os.File).Chown FILES/WRITE
+func (*os.File).Truncate FILES/WRITE
+func (*os.Root).Chmod FILES/WRITE
+func (*os.Root).Chown FILES/WRITE
+func (*os.Root).Chtimes FILES/WRITE
+func (*os.Root).Create FILES/WRITE
+func (*os.Root).Lchown FILES/WRITE
+func (*os.Root).Link FILES/WRITE
+func (*os.Root).Mkdir FILES/WRITE
+func (*os.Root).MkdirAll FILES/WRITE
+func (*os.Root).OpenFile FILES/WRITE
+func (*os.Root).Remove FILES/WRITE
+func (*os.Root).RemoveAll FILES/WRITE
+func (*os.Root).Rename FILES/WRITE
+func (*os.Root).Symlink FILES/WRITE
+func (*os.Root).WriteFile FILES/WRITE
+
+# runtime/debug.WriteHeapDump stays plain FILES (unsplit): it writes to an
+# already-open FD, but it dumps all process memory there — not something the
+# FD-I/O parity argument was meant to bless.
