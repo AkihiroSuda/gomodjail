@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -102,6 +103,50 @@ func TestReportUnused(t *testing.T) {
 	assert.Assert(t, strings.Contains(buf.String(), "unused"), "got %q", buf.String())
 }
 
+// TestReportSARIF: results carry one rule per capability class, violations
+// are errors, caveats are warnings (errors under strict), and each finding is
+// anchored to the module's require line in go.mod.
+func TestReportSARIF(t *testing.T) {
+	src := &profileSource{
+		GoMod:      "go.mod",
+		ModuleLine: map[string]int{poisonedMod: 5},
+	}
+	reports := []policy.ModuleReport{execViolationReport(), reflectCaveatReport("sigs.k8s.io/yaml")}
+
+	var buf bytes.Buffer
+	assert.NilError(t, reportSARIF(&buf, reports, src, false))
+	var log sarifLog
+	assert.NilError(t, json.Unmarshal(buf.Bytes(), &log))
+	assert.Equal(t, log.Version, "2.1.0")
+	assert.Equal(t, len(log.Runs), 1)
+	run := log.Runs[0]
+	assert.Equal(t, run.Tool.Driver.Name, "gomodjail")
+	assert.Equal(t, len(run.Tool.Driver.Rules), 2) // EXEC, REFLECT
+	assert.Equal(t, len(run.Results), 2)
+
+	exec := run.Results[0]
+	assert.Equal(t, exec.RuleID, policy.CapExec)
+	assert.Equal(t, exec.Level, "error")
+	assert.Assert(t, strings.Contains(exec.Message.Text, poisonedMod), "got %q", exec.Message.Text)
+	assert.Assert(t, strings.Contains(exec.Message.Text, "os/exec.Command"), "got %q", exec.Message.Text)
+	assert.Equal(t, len(exec.Locations), 1)
+	assert.Equal(t, exec.Locations[0].PhysicalLocation.ArtifactLocation.URI, "go.mod")
+	assert.Equal(t, exec.Locations[0].PhysicalLocation.Region.StartLine, 5)
+
+	caveat := run.Results[1]
+	assert.Equal(t, caveat.RuleID, policy.CapReflect)
+	assert.Equal(t, caveat.Level, "warning")
+	// A module missing from ModuleLine still gets the go.mod artifact, just
+	// without a region.
+	assert.Equal(t, len(caveat.Locations), 1)
+	assert.Assert(t, caveat.Locations[0].PhysicalLocation.Region == nil)
+
+	buf.Reset()
+	assert.NilError(t, reportSARIF(&buf, reports, src, true))
+	assert.NilError(t, json.Unmarshal(buf.Bytes(), &log))
+	assert.Equal(t, log.Runs[0].Results[1].Level, "error", "--strict must promote caveats")
+}
+
 // withWorkdir runs fn with the process working directory temporarily set to
 // dir. The analyze command (and Capslock) load packages relative to cwd, so
 // the end-to-end tests must run from the target module root.
@@ -141,6 +186,45 @@ func TestAnalyzeVictimFails(t *testing.T) {
 		assert.Assert(t, err != nil, "analyze must fail; out=%q", out)
 		assert.Assert(t, strings.Contains(out, "FAIL "+poisonedMod), "out=%q", out)
 		assert.Assert(t, strings.Contains(out, policy.CapExec), "out=%q", out)
+	})
+}
+
+// runAnalyzeStdout is runAnalyze with stderr kept separate, for asserting on
+// machine-readable stdout (cobra prints the returned error to stderr).
+func runAnalyzeStdout(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	cmd := New()
+	var out, errBuf bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errBuf)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return out.String(), err
+}
+
+// TestAnalyzeVictimSARIF: the end-to-end SARIF run over examples/victim
+// anchors the EXEC finding to poisoned's require line in go.mod.
+func TestAnalyzeVictimSARIF(t *testing.T) {
+	withWorkdir(t, victimDir(t), func() {
+		out, err := runAnalyzeStdout(t, "--format=sarif", "./...")
+		assert.Assert(t, err != nil, "analyze must fail; out=%q", out)
+		var log sarifLog
+		// Decode only the first JSON value: on error cobra appends usage text
+		// to the output stream.
+		assert.NilError(t, json.NewDecoder(strings.NewReader(out)).Decode(&log))
+		assert.Equal(t, len(log.Runs), 1)
+		var exec *sarifResult
+		for i := range log.Runs[0].Results {
+			if log.Runs[0].Results[i].RuleID == policy.CapExec {
+				exec = &log.Runs[0].Results[i]
+				break
+			}
+		}
+		assert.Assert(t, exec != nil, "expected an EXEC result; out=%q", out)
+		assert.Equal(t, exec.Level, "error")
+		assert.Equal(t, exec.Locations[0].PhysicalLocation.ArtifactLocation.URI, "go.mod")
+		// poisoned's require line in examples/victim/go.mod.
+		assert.Equal(t, exec.Locations[0].PhysicalLocation.Region.StartLine, 5)
 	})
 }
 
