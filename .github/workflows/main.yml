@@ -14,7 +14,7 @@ jobs:
       matrix:
         runner: [ubuntu-24.04, macos-15-intel, macos-26]
         # libgomodjail_hook_darwin is sensitive to Go version
-        go: [1.25.x, 1.26.x, 1.27.0-rc.1]
+        go: [1.25.x, 1.26.x, 1.27.0-rc.2]
         build_mode: ["", "strip"]
         exclude:
           - runner: macos-15-intel
