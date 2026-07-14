@@ -7,7 +7,7 @@ require (
 	github.com/AkihiroSuda/gosocialcheck v0.1.3
 	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/mod v0.37.0
+	golang.org/x/mod v0.38.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/tools v0.47.0
 	gotest.tools/v3 v3.5.2
