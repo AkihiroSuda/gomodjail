@@ -76,8 +76,8 @@ func action(cmd *cobra.Command, args []string) error {
 	zw := zip.NewWriter(out)
 	defer zw.Close() //nolint:errcheck
 	if runtime.GOOS == "darwin" {
-		libgomodjailHook, err := tracer.LibgomodjailHook()
-		if err != nil {
+		libgomodjailHook, err := tracer.LibgomodjailHook() //nolint:staticcheck // SA4023
+		if err != nil {                                    //nolint:staticcheck // SA4023
 			return err
 		}
 		if err := ziputil.WriteFileWithPath(zw, libgomodjailHook, "libgomodjail_hook_darwin.dylib"); err != nil {
