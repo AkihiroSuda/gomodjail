@@ -104,12 +104,23 @@ func newRootCommand() *cobra.Command {
 		return nil
 	}
 
-	cmd.AddCommand(
-		run.New(),
-		pack.New(),
-		analyze.New(),
-		fix.New(),
+	const (
+		groupStatic  = "static"
+		groupDynamic = "dynamic"
 	)
+	cmd.AddGroup(
+		&cobra.Group{ID: groupStatic, Title: "Static mode:"},
+		&cobra.Group{ID: groupDynamic, Title: "Dynamic mode (legacy):"},
+	)
+	for groupID, newCmds := range map[string][]*cobra.Command{
+		groupStatic:  {analyze.New(), fix.New()},
+		groupDynamic: {run.New(), pack.New()},
+	} {
+		for _, c := range newCmds {
+			c.GroupID = groupID
+			cmd.AddCommand(c)
+		}
+	}
 	return cmd
 }
 
