@@ -5,7 +5,7 @@ func (regs *Regs) Syscall() uint64 {
 }
 
 func (regs *Regs) Args() []uint64 {
-	return regs.Regs[0:5]
+	return regs.Regs[0:6]
 }
 
 func (regs *Regs) SetSyscall(v uint64) {
