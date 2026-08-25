@@ -82,9 +82,19 @@ func xmain() int {
 
 func newRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "gomodjail",
-		Short:         "Jail for go modules",
-		Example:       run.Example(),
+		Use:   "gomodjail",
+		Short: "Jail for go modules",
+		Example: `  # Statically verify that the modules marked as "gomodjail:confined"
+  # in go.mod cannot reach disallowed capabilities (static mode):
+  gomodjail analyze ./...
+
+  # Rewrite go.mod so that the analysis passes, by unconfining the
+  # modules that fail it:
+  gomodjail fix ./...
+
+  # Run a Go program with the confinement enforced at runtime
+  # (dynamic mode, legacy):
+  gomodjail run --go-mod=go.mod -- ./myprogram`,
 		Version:       version.GetVersion(),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,

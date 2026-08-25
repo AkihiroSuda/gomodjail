@@ -16,7 +16,9 @@ import (
 )
 
 func Example() string {
-	return "TBD"
+	return `  # Run a Go program, blocking disallowed syscalls issued by the modules
+  # marked as "gomodjail:confined" in go.mod:
+  gomodjail run --go-mod=go.mod -- ./myprogram`
 }
 
 func New() *cobra.Command {
