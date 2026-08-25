@@ -25,13 +25,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/mod/modfile"
 
 	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
 	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile/fromgomod"
@@ -81,7 +79,7 @@ func action(cmd *cobra.Command, args []string) error {
 	if err = prof.Validate(); err != nil {
 		return err
 	}
-	confined := confinedModules(prof)
+	confined := prof.ConfinedModules()
 	if len(confined) == 0 {
 		return errors.New("no confined modules in policy (Hint: annotate go.mod with `// gomodjail:confined`, or pass --policy=MODULE=confined)")
 	}
@@ -188,13 +186,11 @@ func loadProfile(flags *pflag.FlagSet) (*profile.Profile, *profileSource, []byte
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		mf, err := modfile.Parse(goMod, goModBytes, nil)
+		mf, parsed, err := fromgomod.Parse(goMod, goModBytes)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		if err = fromgomod.FromGoMod(mf, prof); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to read profile from %q: %w", goMod, err)
-		}
+		prof = parsed
 		src.GoMod = goMod
 		for _, req := range mf.Require {
 			if req.Syntax != nil {
@@ -213,17 +209,6 @@ func loadProfile(flags *pflag.FlagSet) (*profile.Profile, *profileSource, []byte
 		prof.Modules[k] = v
 	}
 	return prof, src, goModBytes, nil
-}
-
-func confinedModules(prof *profile.Profile) []string {
-	var mods []string
-	for mod, pol := range prof.Modules {
-		if pol == profile.PolicyConfined {
-			mods = append(mods, mod)
-		}
-	}
-	sort.Strings(mods)
-	return mods
 }
 
 type summary struct {
@@ -293,19 +278,19 @@ func report(w io.Writer, reports []policy.ModuleReport, opts reportOptions) erro
 	for _, r := range ordered {
 		switch {
 		case len(r.Violations) > 0:
-			p.printf("FAIL %s: reaches %s\n", r.Module, capabilityList(r.Violations))
+			p.printf("FAIL %s: reaches %s\n", r.Module, policy.CapabilityList(r.Violations))
 			for _, v := range r.Violations {
 				printPath(p, v)
 			}
 			if len(r.Caveats) > 0 {
-				p.printf("     also uses %s (cannot be statically verified)\n", capabilityList(r.Caveats))
+				p.printf("     also uses %s (cannot be statically verified)\n", policy.CapabilityList(r.Caveats))
 			}
 		case len(r.Caveats) > 0:
 			hint := "verified except for these; use --explain for paths, --strict to fail"
 			if opts.Strict {
 				hint = "failing due to --strict"
 			}
-			p.printf("WARN %s: uses %s (%s)\n", r.Module, capabilityList(r.Caveats), hint)
+			p.printf("WARN %s: uses %s (%s)\n", r.Module, policy.CapabilityList(r.Caveats), hint)
 			if opts.Explain {
 				for _, c := range r.Caveats {
 					printPath(p, c)
@@ -325,14 +310,6 @@ func report(w io.Writer, reports []policy.ModuleReport, opts reportOptions) erro
 		p.printf("gomodjail: ok, no policy violations\n")
 	}
 	return p.err
-}
-
-func capabilityList(ws []policy.Witness) string {
-	caps := make([]string, 0, len(ws))
-	for _, w := range ws {
-		caps = append(caps, w.Capability)
-	}
-	return strings.Join(caps, ", ")
 }
 
 // printPath prints one witness call path, indented under its verdict line.

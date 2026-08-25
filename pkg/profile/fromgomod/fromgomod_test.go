@@ -1,6 +1,8 @@
 package fromgomod
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
@@ -123,4 +125,14 @@ require example.com/mod v1.2.3 // gomodjail:confined
 			assert.DeepEqual(t, tc.expected, prof.Modules)
 		})
 	}
+}
+
+// TestParseFileNoModuleDirective: modfile.Parse accepts a go.mod without a
+// module directive; ParseFile must reject it as a normal input error rather
+// than letting FromGoMod panic on the nil Module.
+func TestParseFileNoModuleDirective(t *testing.T) {
+	goMod := filepath.Join(t.TempDir(), "go.mod")
+	assert.NilError(t, os.WriteFile(goMod, []byte("go 1.23\n"), 0o644))
+	_, _, err := ParseFile(goMod)
+	assert.ErrorContains(t, err, "no module directive")
 }

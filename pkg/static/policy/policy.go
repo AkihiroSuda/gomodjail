@@ -183,6 +183,16 @@ func (r *ModuleReport) OK() bool {
 	return len(r.Violations) == 0
 }
 
+// CapabilityList renders the witnesses' capability classes as a
+// comma-separated list, for one-line verdicts.
+func CapabilityList(ws []Witness) string {
+	caps := make([]string, 0, len(ws))
+	for _, w := range ws {
+		caps = append(caps, w.Capability)
+	}
+	return strings.Join(caps, ", ")
+}
+
 // Evaluate aggregates module-rooted findings into one report per confined
 // module. For each (module, capability) pair the shortest witness path is
 // kept: the goal is one auditable piece of evidence per fact, not an

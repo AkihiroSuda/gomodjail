@@ -51,6 +51,18 @@ func (p *Profile) Validate() error {
 	return nil
 }
 
+// ConfinedModules returns the modules with PolicyConfined, sorted.
+func (p *Profile) ConfinedModules() []string {
+	var mods []string
+	for mod, pol := range p.Modules {
+		if pol == PolicyConfined {
+			mods = append(mods, mod)
+		}
+	}
+	slices.Sort(mods)
+	return mods
+}
+
 type Confinment struct {
 	Module string
 	Policy Policy
