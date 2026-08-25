@@ -114,6 +114,38 @@ Useful flags:
 - `--parallel=N`: analyze up to N modules concurrently (default: the number
   of CPUs; memory use grows with N)
 
+### Fixing failures automatically
+`gomodjail fix` rewrites `go.mod` so that `gomodjail analyze` passes:
+every module with a **FAIL** verdict has its annotation downgraded to
+`// gomodjail:unconfined` (a per-line annotation overrides any file- or
+block-level `gomodjail:confined` default, and the rest of the line is
+preserved; for `// indirect` requires the annotation is written on its own
+line above the `require`, keeping the `// indirect` comment byte-for-byte
+intact for other toolchains):
+
+```console
+$ gomodjail fix ./...
+fix  github.com/containerd/go-runc: unconfined (reaches EXEC, FILES/READ, NETWORK, SYSTEM_CALLS)
+
+gomodjail: unconfined 1 of 101 confined module(s) in go.mod
+gomodjail: 35 module(s) with warnings kept confined (use --strict to unconfine them too)
+```
+
+Unconfining is the only safe automated fix: a **FAIL** means the module's
+own code (or its own dependency cone) reaches the capability, which no edit
+to your program can prevent. The explicit `gomodjail:unconfined` annotation
+keeps the decision visible and reviewable in `go.mod`.
+Unconfining every confined module at once is refused, as `gomodjail
+analyze` would then have nothing left to verify.
+
+Useful flags:
+- `--dry-run`: print the edits without writing `go.mod`
+- `--strict`: also unconfine warning-only modules (mirrors `analyze --strict`)
+- `--from-report=FILE`: reuse a saved `gomodjail analyze --format=json`
+  report (`-` for stdin) instead of re-running the analysis
+- `--parallel=N`: analyze up to N modules concurrently (default: the number
+  of CPUs; memory use grows with N)
+
 ### More examples
 
 [`examples/profiles`](./examples/profiles) has several example profiles:
