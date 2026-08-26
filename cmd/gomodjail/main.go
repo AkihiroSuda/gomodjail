@@ -10,16 +10,17 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/analyze"
-	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/pack"
-	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/commands/run"
-	"github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/cache"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/osargs"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/pack/ziputil"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/tracer"
-	"github.com/AkihiroSuda/gomodjail/pkg/envutil"
+	"github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/commands/analyze"
+	"github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/commands/fix"
+	"github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/commands/pack"
+	"github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/commands/run"
+	"github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/version"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/env"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/pack/cache"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/pack/osargs"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/pack/ziputil"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/tracer"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/envutil"
 	"github.com/spf13/cobra"
 )
 
@@ -81,9 +82,19 @@ func xmain() int {
 
 func newRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "gomodjail",
-		Short:         "Jail for go modules",
-		Example:       run.Example(),
+		Use:   "gomodjail",
+		Short: "Jail for go modules",
+		Example: `  # Statically verify that the modules marked as "gomodjail:confined"
+  # in go.mod cannot reach disallowed capabilities (static mode):
+  gomodjail analyze ./...
+
+  # Rewrite go.mod so that the analysis passes, by unconfining the
+  # modules that fail it:
+  gomodjail fix ./...
+
+  # Run a Go program with the confinement enforced at runtime
+  # (dynamic mode, legacy):
+  gomodjail run --go-mod=go.mod -- ./myprogram`,
 		Version:       version.GetVersion(),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
@@ -103,11 +114,23 @@ func newRootCommand() *cobra.Command {
 		return nil
 	}
 
-	cmd.AddCommand(
-		run.New(),
-		pack.New(),
-		analyze.New(),
+	const (
+		groupStatic  = "static"
+		groupDynamic = "dynamic"
 	)
+	cmd.AddGroup(
+		&cobra.Group{ID: groupStatic, Title: "Static mode:"},
+		&cobra.Group{ID: groupDynamic, Title: "Dynamic mode (legacy):"},
+	)
+	for groupID, newCmds := range map[string][]*cobra.Command{
+		groupStatic:  {analyze.New(), fix.New()},
+		groupDynamic: {run.New(), pack.New()},
+	} {
+		for _, c := range newCmds {
+			c.GroupID = groupID
+			cmd.AddCommand(c)
+		}
+	}
 	return cmd
 }
 

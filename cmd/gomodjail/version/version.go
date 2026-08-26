@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// Version can be fulfilled on compilation time: -ldflags="-X github.com/AkihiroSuda/gomodjail/cmd/gomodjail/version.Version=v0.1.2"
+// Version can be fulfilled on compilation time: -ldflags="-X github.com/AkihiroSuda/gomodjail/v2/cmd/gomodjail/version.Version=v0.1.2"
 var Version string
 
 func GetVersion() string {

@@ -33,10 +33,43 @@ jobs:
           sudo make install
       - name: Unit tests
         run: go test -v ./...
+      - name: "Unit tests: race detector (concurrent static analysis)"
+        run: go test -race ./pkg/static/capslock/
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         if: ${{ !contains(matrix.go, 'rc') }}
-      - name: Smoke test
+      - name: "Smoke test: static mode"
+        timeout-minutes: 5
+        run: |
+          set -eux
+          # The confined poisoned module execs vi: the gate must FAIL with an
+          # EXEC violation, from any working directory (--go-mod sets the
+          # load root).
+          rc=0
+          gomodjail analyze --go-mod=examples/victim/go.mod ./... >analyze.log || rc=$?
+          cat analyze.log
+          [ "$rc" -ne 0 ]
+          grep -F "FAIL github.com/AkihiroSuda/gomodjail/examples/poisoned" analyze.log
+          grep -F "os/exec.Command" analyze.log
+          rm -f analyze.log
+          cd examples/victim
+          # Machine-readable reports
+          gomodjail analyze --format=json ./... >report.json || true
+          jq -e '.modules[] | select(.module == "github.com/AkihiroSuda/gomodjail/examples/poisoned") | .violations[0].capability == "EXEC"' report.json
+          gomodjail analyze --format=sarif ./... >report.sarif || true
+          jq -e '.version == "2.1.0" and (.runs[0].results | length > 0)' report.sarif
+          # poisoned is the only confined module here, so gomodjail fix must
+          # refuse to unconfine it (the gate would afterwards hard-error with
+          # "no confined modules") and leave go.mod untouched.
+          rc=0
+          gomodjail fix --from-report=report.json >fix.log 2>&1 || rc=$?
+          cat fix.log
+          [ "$rc" -ne 0 ]
+          grep -F "refusing to unconfine all 1 confined module(s)" fix.log
+          grep -F "gomodjail:confined" go.mod
+          git diff --exit-code go.mod
+          rm -f report.json report.sarif fix.log
+      - name: "Smoke test: dynamic mode"
         timeout-minutes: 5
         env:
           BUILD_MODE: ${{ matrix.build_mode }}

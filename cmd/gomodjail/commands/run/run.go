@@ -6,17 +6,19 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/child"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/env"
-	"github.com/AkihiroSuda/gomodjail/pkg/dynamic/parent"
-	"github.com/AkihiroSuda/gomodjail/pkg/profile"
-	"github.com/AkihiroSuda/gomodjail/pkg/profile/fromgomod"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/child"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/env"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/dynamic/parent"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile"
+	"github.com/AkihiroSuda/gomodjail/v2/pkg/profile/fromgomod"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/modfile"
 )
 
 func Example() string {
-	return "TBD"
+	return `  # Run a Go program, blocking disallowed syscalls issued by the modules
+  # marked as "gomodjail:confined" in go.mod:
+  gomodjail run --go-mod=go.mod -- ./myprogram`
 }
 
 func New() *cobra.Command {
