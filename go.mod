@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/AkihiroSuda/gomoddirectivecomments v0.1.0
 	github.com/elastic/go-seccomp-bpf v1.6.0
-	github.com/google/capslock v0.3.2
+	github.com/google/capslock v0.3.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/mod v0.40.0
