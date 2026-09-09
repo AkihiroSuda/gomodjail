@@ -128,7 +128,7 @@ require example.com/dep v1.0.0 // indirect
 `
 	out, policies, changed := setPolicy(t, goMod, "example.com/dep", "unconfined")
 	assert.Assert(t, changed)
-	assert.Assert(t, strings.Contains(out, "//gomodjail:unconfined\nrequire example.com/dep v1.0.0 // indirect"), "got %q", out)
+	assert.Assert(t, strings.Contains(out, "// gomodjail:unconfined\nrequire example.com/dep v1.0.0 // indirect"), "got %q", out)
 	assert.Equal(t, policies["example.com/dep"], "")
 
 	mf, err := modfile.Parse("go.mod", []byte(out), nil)
@@ -153,7 +153,7 @@ require (
 `
 	out, policies, changed := setPolicy(t, goMod, "example.com/dep", "unconfined")
 	assert.Assert(t, changed)
-	assert.Assert(t, strings.Contains(out, "\t//gomodjail:unconfined\n\texample.com/dep v1.0.0 // indirect"), "got %q", out)
+	assert.Assert(t, strings.Contains(out, "\t// gomodjail:unconfined\n\texample.com/dep v1.0.0 // indirect"), "got %q", out)
 	assert.Equal(t, policies["example.com/dep"], "")
 	assert.Equal(t, policies["example.com/other"], "confined")
 
@@ -214,4 +214,56 @@ func TestSetPolicyUnknownModule(t *testing.T) {
 	assert.NilError(t, err)
 	_, err = SetPolicy(mf, "example.com/dep", "unconfined")
 	assert.ErrorContains(t, err, "no require line")
+}
+
+// TestSetPolicyMatchesFileSpacing: an inserted annotation copies the spacing
+// the file already uses, rather than imposing gomodjail's own house style.
+// nerdctl writes "//gomodjail:confined"; adding "// gomodjail:unconfined" to
+// such a file is an unsolicited whitespace change in the diff.
+// https://github.com/containerd/nerdctl/pull/5192#discussion_r3964205659
+func TestSetPolicyMatchesFileSpacing(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		goMod string
+		want  string
+	}{
+		{
+			name:  "file default, direct require",
+			goMod: "//gomodjail:confined\nmodule example.com/app\n\ngo 1.23\n\nrequire example.com/dep v1.0.0\n",
+			want:  "require example.com/dep v1.0.0 //gomodjail:unconfined",
+		},
+		{
+			name:  "file default, indirect require",
+			goMod: "//gomodjail:confined\nmodule example.com/app\n\ngo 1.23\n\nrequire example.com/dep v1.0.0 // indirect\n",
+			want:  "//gomodjail:unconfined\nrequire example.com/dep v1.0.0 // indirect",
+		},
+		{
+			name:  "block default",
+			goMod: "module example.com/app\n\ngo 1.23\n\n//gomodjail:confined\nrequire (\n\texample.com/dep v1.0.0\n\texample.com/other v1.0.0\n)\n",
+			want:  "\texample.com/dep v1.0.0 //gomodjail:unconfined",
+		},
+		{
+			name:  "spaced style is copied too",
+			goMod: "// gomodjail:confined\nmodule example.com/app\n\ngo 1.23\n\nrequire example.com/dep v1.0.0\n",
+			want:  "require example.com/dep v1.0.0 // gomodjail:unconfined",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, policies, changed := setPolicy(t, tc.goMod, "example.com/dep", "unconfined")
+			assert.Assert(t, changed)
+			assert.Assert(t, strings.Contains(out, tc.want), "want %q in %q", tc.want, out)
+			assert.Equal(t, policies["example.com/dep"], "")
+		})
+	}
+}
+
+// TestSetPolicyDefaultSpacing: with no annotation anywhere to copy — the
+// module is confined by something other than a comment in this go.mod, or the
+// caller is annotating a fresh file — the documented "// gomodjail:x" style
+// is used.
+func TestSetPolicyDefaultSpacing(t *testing.T) {
+	const goMod = "module example.com/app\n\ngo 1.23\n\nrequire example.com/dep v1.0.0\n"
+	out, _, changed := setPolicy(t, goMod, "example.com/dep", "unconfined")
+	assert.Assert(t, changed)
+	assert.Assert(t, strings.Contains(out, "require example.com/dep v1.0.0 // gomodjail:unconfined"), "got %q", out)
 }
