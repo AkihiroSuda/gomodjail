@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/AkihiroSuda/gomoddirectivecomments v0.1.0
 	github.com/elastic/go-seccomp-bpf v1.6.0
-	github.com/google/capslock v0.3.3
+	github.com/google/capslock v0.3.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	golang.org/x/mod v0.42.0
@@ -22,5 +22,5 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )
